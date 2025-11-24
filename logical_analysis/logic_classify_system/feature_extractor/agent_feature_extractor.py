@@ -2,9 +2,11 @@
 상담원 발화 Turn 특징점 추출기
 
 해당 Turn 내에서만 추출 가능한 특징점을 추출
+Keyword 기반 매뉴얼 준수 평가 수행
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from .manual_compliance_checker import ManualComplianceChecker
 
 
 class AgentFeatureExtractor:
@@ -12,20 +14,25 @@ class AgentFeatureExtractor:
     
     def __init__(self):
         """특징점 추출기 초기화"""
-        # 향후 매뉴얼 데이터 로드 예정
-        pass
+        self.compliance_checker = ManualComplianceChecker()
     
     def extract_features(
         self,
         text: str,
-        customer_label: str
+        customer_label: str,
+        emotion_label: Optional[str] = None,
+        is_start: bool = False,
+        is_end: bool = False
     ) -> tuple[Dict[str, float], Dict[str, Any], Dict[str, Any]]:
         """
         상담원 발화 Turn 특징점 추출
         
         Args:
             text: 해당 Turn의 발화
-            customer_label: 해당 손님 발화의 Label
+            customer_label: 해당 손님 발화의 Label (CAR)
+            emotion_label: 감정 라벨 (None이면 "NEUTRAL" 사용)
+            is_start: 세션 시작 여부 (인사 확인용)
+            is_end: 세션 종료 여부 (마무리 확인용)
         
         Returns:
             (feature_scores, compliance_details, extracted_features)
@@ -37,10 +44,23 @@ class AgentFeatureExtractor:
         compliance_details = {}
         extracted_features = {}
         
-        # 1. 매뉴얼 준수도 평가 (향후 구현)
-        compliance_score, compliance_info = self._evaluate_manual_compliance(text, customer_label)
+        # 감정 라벨 기본값 설정
+        if emotion_label is None:
+            emotion_label = "NEUTRAL"
+        
+        # 1. 매뉴얼 준수도 평가 (Keyword 기반)
+        compliance_score, compliance_info = self.compliance_checker.check_compliance(
+            agent_text=text,
+            emotion_label=emotion_label,
+            customer_label=customer_label,
+            is_start=is_start,
+            is_end=is_end
+        )
         feature_scores["manual_compliance_score"] = compliance_score
         compliance_details.update(compliance_info)
+        
+        # compliance_details에서 공감 표현 점수 추출 (empathy_score와 통합 가능)
+        empathy_phrase_score = compliance_info.get("empathy_phrase_score", 0.5)
         
         # 2. 정보 제공 정확성 평가
         info_score = self._evaluate_information_accuracy(text, customer_label)
@@ -50,11 +70,13 @@ class AgentFeatureExtractor:
         clarity_score = self._evaluate_communication_clarity(text)
         feature_scores["communication_clarity_score"] = clarity_score
         
-        # 4. 공감 표현 평가
-        empathy_score, empathy_keywords = self._evaluate_empathy(text, customer_label)
+        # 4. 공감 표현 평가 (매뉴얼 준수도와 통합)
+        # compliance_details에서 공감 표현 정보 가져오기
+        empathy_phrases = compliance_info.get("empathy_phrase_details", {}).get("found_phrases", [])
+        empathy_score = empathy_phrase_score  # 매뉴얼 준수도에서 가져온 공감 점수
         feature_scores["empathy_score"] = empathy_score
-        if empathy_keywords:
-            extracted_features["empathy_keywords"] = empathy_keywords
+        if empathy_phrases:
+            extracted_features["empathy_keywords"] = empathy_phrases
         
         # 5. 문제 해결 방안 제시 평가
         problem_solving_score, solution_keywords = self._evaluate_problem_solving(text, customer_label)
@@ -62,19 +84,15 @@ class AgentFeatureExtractor:
         if solution_keywords:
             extracted_features["solution_keywords"] = solution_keywords
         
+        # extracted_features에 매뉴얼 준수도 관련 정보 추가
+        if compliance_info.get("found_keywords"):
+            extracted_features["used_keywords"] = compliance_info["found_keywords"]
+        if compliance_info.get("missing_keywords"):
+            extracted_features["missing_keywords"] = compliance_info["missing_keywords"]
+        if compliance_info.get("found_prohibited"):
+            extracted_features["prohibited_keywords"] = compliance_info["found_prohibited"]
+        
         return feature_scores, compliance_details, extracted_features
-    
-    def _evaluate_manual_compliance(self, text: str, customer_label: str) -> tuple[float, Dict[str, Any]]:
-        """매뉴얼 준수도 평가 (향후 구현)"""
-        # 임시 구현: 기본 점수 반환
-        compliance_details = {
-            "phrase_score": 0.7,
-            "keyword_score": 0.7,
-            "procedure_score": 0.7,
-            "complied_items": [],
-            "non_complied_items": []
-        }
-        return 0.7, compliance_details
     
     def _evaluate_information_accuracy(self, text: str, customer_label: str) -> float:
         """정보 제공 정확성 평가"""
@@ -128,4 +146,6 @@ class AgentFeatureExtractor:
             return 1.0, found_keywords
         else:
             return 0.6, found_keywords
+
+
 

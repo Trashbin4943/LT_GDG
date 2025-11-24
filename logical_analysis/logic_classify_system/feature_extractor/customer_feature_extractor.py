@@ -77,11 +77,21 @@ class CustomerFeatureExtractor:
         if repetition_keywords:
             extracted_features["repetition_keywords"] = repetition_keywords
         
-        # 7. Normal Label 분류 신뢰도
-        if classification_result.label_type == "NORMAL":
-            feature_scores["normal_label_confidence"] = classification_result.confidence
+        # 7. Special Label 신뢰도 (요인들 합산)
+        if classification_result.label_type == "SPECIAL":
+            # Special Label을 붙이게 된 계기(요인들)의 신뢰도를 합산
+            feature_scores["special_label_confidence"] = classification_result.confidence
+            
+            # Special Label별 요인 점수 추출 (probabilities에 저장된 요인들)
+            if classification_result.probabilities:
+                for label, factor_score in classification_result.probabilities.items():
+                    if label in ["PROFANITY", "VIOLENCE_THREAT", "SEXUAL_HARASSMENT", 
+                                "HATE_SPEECH", "UNREASONABLE_DEMAND", "REPETITION"]:
+                        # 요인별 점수를 feature_scores에 추가
+                        feature_scores[f"{label.lower()}_factor_score"] = factor_score
         else:
-            feature_scores["normal_label_confidence"] = 0.0
+            # Normal Label인 경우 Special Label confidence는 0
+            feature_scores["special_label_confidence"] = 0.0
         
         return feature_scores, extracted_features
     
@@ -173,4 +183,74 @@ class CustomerFeatureExtractor:
             score = min(0.4 + len(found_keywords) * 0.2, 0.8)
             return score, found_keywords
         return 0.0, []
+    
+    def _extract_normal_label_features(self, text: str, classification_result: ClassificationResult) -> Dict[str, float]:
+        """Normal Label별 특징점 점수 추출"""
+        text_lower = text.lower()
+        normal_label_scores = {}
+        
+        # 각 Normal Label별 키워드 감지 점수 계산
+        # REQUEST
+        request_keywords = [kw for kw in IntentBaselineRules.REQUEST_KEYWORDS if kw in text_lower]
+        normal_label_scores["request_score"] = min(0.6 + len(request_keywords) * 0.1, 0.9) if request_keywords else 0.0
+        
+        # COMPLAINT
+        complaint_keywords = [kw for kw in IntentBaselineRules.COMPLAINT_KEYWORDS if kw in text_lower]
+        normal_label_scores["complaint_score"] = min(0.6 + len(complaint_keywords) * 0.1, 0.9) if complaint_keywords else 0.0
+        
+        # CLARIFICATION
+        clarification_keywords = [kw for kw in IntentBaselineRules.CLARIFICATION_KEYWORDS if kw in text_lower]
+        normal_label_scores["clarification_score"] = min(0.6 + len(clarification_keywords) * 0.1, 0.9) if clarification_keywords else 0.0
+        
+        # CONFIRMATION
+        confirmation_keywords = [kw for kw in IntentBaselineRules.CONFIRMATION_KEYWORDS if kw in text_lower]
+        normal_label_scores["confirmation_score"] = min(0.6 + len(confirmation_keywords) * 0.1, 0.9) if confirmation_keywords else 0.0
+        
+        # CLOSING
+        closing_keywords = [kw for kw in IntentBaselineRules.CLOSING_KEYWORDS if kw in text_lower]
+        normal_label_scores["closing_score"] = min(0.7 + len(closing_keywords) * 0.1, 0.9) if closing_keywords else 0.0
+        
+        # INQUIRY (기본값, 키워드가 없는 경우도 포함)
+        inquiry_keywords = [kw for kw in IntentBaselineRules.INQUIRY_KEYWORDS if kw in text_lower]
+        normal_label_scores["inquiry_score"] = min(0.5 + len(inquiry_keywords) * 0.1, 0.8) if inquiry_keywords else 0.3
+        
+        return normal_label_scores
+    
+    def _extract_normal_label_keywords(self, text: str) -> Dict[str, list]:
+        """Normal Label별 키워드 추출"""
+        text_lower = text.lower()
+        normal_label_keywords = {}
+        
+        # REQUEST 키워드
+        request_keywords = [kw for kw in IntentBaselineRules.REQUEST_KEYWORDS if kw in text_lower]
+        if request_keywords:
+            normal_label_keywords["request_keywords"] = request_keywords
+        
+        # COMPLAINT 키워드
+        complaint_keywords = [kw for kw in IntentBaselineRules.COMPLAINT_KEYWORDS if kw in text_lower]
+        if complaint_keywords:
+            normal_label_keywords["complaint_keywords"] = complaint_keywords
+        
+        # CLARIFICATION 키워드
+        clarification_keywords = [kw for kw in IntentBaselineRules.CLARIFICATION_KEYWORDS if kw in text_lower]
+        if clarification_keywords:
+            normal_label_keywords["clarification_keywords"] = clarification_keywords
+        
+        # CONFIRMATION 키워드
+        confirmation_keywords = [kw for kw in IntentBaselineRules.CONFIRMATION_KEYWORDS if kw in text_lower]
+        if confirmation_keywords:
+            normal_label_keywords["confirmation_keywords"] = confirmation_keywords
+        
+        # CLOSING 키워드
+        closing_keywords = [kw for kw in IntentBaselineRules.CLOSING_KEYWORDS if kw in text_lower]
+        if closing_keywords:
+            normal_label_keywords["closing_keywords"] = closing_keywords
+        
+        # INQUIRY 키워드
+        inquiry_keywords = [kw for kw in IntentBaselineRules.INQUIRY_KEYWORDS if kw in text_lower]
+        if inquiry_keywords:
+            normal_label_keywords["inquiry_keywords"] = inquiry_keywords
+        
+        return normal_label_keywords
+
 

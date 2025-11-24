@@ -1,7 +1,15 @@
 from django.db import models
 
-import torch
-import torch.nn as nn
+try:
+    import torch
+    import torch.nn as nn
+except ImportError:
+    torch = None
+    class _DummyModule:  # 최소한의 placeholder
+        def __getattr__(self, name):
+            raise RuntimeError("PyTorch is not available in this deployment.")
+
+    nn = _DummyModule()
 from transformers import BertTokenizer, BertForSequenceClassification
 from emotion_system.emotion.label_map import label_map
 

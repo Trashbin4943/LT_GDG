@@ -1,0 +1,59 @@
+{
+  "total_turns": 3075,
+  "normal_count": 2986,
+  "special_count": 89,
+  "normal_ratio": 97.10569105691057,
+  "special_ratio": 2.8943089430894307,
+  "label_distribution": {
+    "normal": {
+      "INQUIRY": 2986
+    },
+    "special": {
+      "UNREASONABLE_DEMAND": 83,
+      "SEXUAL_HARASSMENT": 5,
+      "HATE_SPEECH": 1
+    }
+  },
+  "confidence_statistics": {
+    "normal": {
+      "mean": 0.5,
+      "min": 0.5,
+      "max": 0.5,
+      "median": 0.5,
+      "std": 0.0
+    },
+    "special": {
+      "mean": 0.49157303370786487,
+      "min": 0.3,
+      "max": 0.8999999999999999,
+      "median": 0.3,
+      "std": 0.24532399206505984
+    }
+  },
+  "label_details": {
+    "UNREASONABLE_DEMAND": {
+      "count": 83,
+      "ratio": 2.6991869918699187,
+      "average_confidence": 0.46987951807228906,
+      "examples_count": 5
+    },
+    "INQUIRY": {
+      "count": 2986,
+      "ratio": 97.10569105691057,
+      "average_confidence": 0.5,
+      "examples_count": 5
+    },
+    "SEXUAL_HARASSMENT": {
+      "count": 5,
+      "ratio": 0.16260162601626016,
+      "average_confidence": 0.8,
+      "examples_count": 5
+    },
+    "HATE_SPEECH": {
+      "count": 1,
+      "ratio": 0.03252032520325203,
+      "average_confidence": 0.75,
+      "examples_count": 1
+    }
+  }
+}

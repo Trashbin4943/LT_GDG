@@ -1,0 +1,144 @@
+{
+  "total_turns": 399,
+  "feature_scores_statistics": {
+    "normal_label_confidence": {
+      "detection_count": 377,
+      "detection_rate": 94.48621553884712,
+      "average_score": 0.5,
+      "min_score": 0.5,
+      "max_score": 0.5,
+      "examples_count": 5
+    },
+    "profanity_score": {
+      "detection_count": 16,
+      "detection_rate": 4.010025062656641,
+      "average_score": 0.74375,
+      "min_score": 0.6000000000000001,
+      "max_score": 0.8999999999999999,
+      "examples_count": 5
+    },
+    "hate_speech_score": {
+      "detection_count": 11,
+      "detection_rate": 2.756892230576441,
+      "average_score": 0.7636363636363637,
+      "min_score": 0.75,
+      "max_score": 0.8999999999999999,
+      "examples_count": 5
+    },
+    "unreasonable_demand_score": {
+      "detection_count": 7,
+      "detection_rate": 1.7543859649122806,
+      "average_score": 0.6571428571428571,
+      "min_score": 0.3,
+      "max_score": 0.7999999999999999,
+      "examples_count": 5
+    },
+    "threat_score": {
+      "detection_count": 2,
+      "detection_rate": 0.5012531328320802,
+      "average_score": 0.85,
+      "min_score": 0.85,
+      "max_score": 0.85,
+      "examples_count": 2
+    },
+    "sexual_harassment_score": {
+      "detection_count": 1,
+      "detection_rate": 0.2506265664160401,
+      "average_score": 0.8,
+      "min_score": 0.8,
+      "max_score": 0.8,
+      "examples_count": 1
+    }
+  },
+  "extracted_features_statistics": {
+    "profanity_keywords": {
+      "detection_count": 16,
+      "detection_rate": 4.010025062656641,
+      "average_items_per_detection": 0.0625,
+      "total_items": 1,
+      "examples_count": 3
+    },
+    "profanity_category": {
+      "detection_count": 16,
+      "detection_rate": 4.010025062656641,
+      "average_items_per_detection": 1.0,
+      "total_items": 16,
+      "examples_count": 3
+    },
+    "hate_keywords": {
+      "detection_count": 11,
+      "detection_rate": 2.756892230576441,
+      "average_items_per_detection": 1.0909090909090908,
+      "total_items": 12,
+      "examples_count": 3
+    },
+    "unreasonable_keywords": {
+      "detection_count": 7,
+      "detection_rate": 1.7543859649122806,
+      "average_items_per_detection": 1.0,
+      "total_items": 7,
+      "examples_count": 3
+    },
+    "threat_patterns": {
+      "detection_count": 2,
+      "detection_rate": 0.5012531328320802,
+      "average_items_per_detection": 1.0,
+      "total_items": 2,
+      "examples_count": 2
+    },
+    "sexual_keywords": {
+      "detection_count": 1,
+      "detection_rate": 0.2506265664160401,
+      "average_items_per_detection": 1.0,
+      "total_items": 1,
+      "examples_count": 1
+    }
+  },
+  "label_feature_correlation": {
+    "INQUIRY": {
+      "normal_label_confidence": 0.5
+    },
+    "PROFANITY": {
+      "profanity_score": 0.115625,
+      "threat_score": 0.425,
+      "unreasonable_demand_score": 0.11428571428571428
+    },
+    "HATE_SPEECH": {
+      "profanity_score": 0.525,
+      "hate_speech_score": 0.7636363636363637
+    },
+    "UNREASONABLE_DEMAND": {
+      "unreasonable_demand_score": 0.5428571428571428
+    },
+    "VIOLENCE_THREAT": {
+      "profanity_score": 0.053125,
+      "threat_score": 0.425
+    },
+    "SEXUAL_HARASSMENT": {
+      "profanity_score": 0.05,
+      "sexual_harassment_score": 0.8
+    }
+  },
+  "feature_co_occurrence": {
+    "profanity_score": {
+      "hate_speech_score": 11,
+      "threat_score": 2,
+      "sexual_harassment_score": 1,
+      "unreasonable_demand_score": 1
+    },
+    "hate_speech_score": {
+      "profanity_score": 11
+    },
+    "threat_score": {
+      "profanity_score": 2,
+      "unreasonable_demand_score": 1
+    },
+    "sexual_harassment_score": {
+      "profanity_score": 1
+    },
+    "unreasonable_demand_score": {
+      "profanity_score": 1,
+      "threat_score": 1
+    }
+  }
+}

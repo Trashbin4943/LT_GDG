@@ -1,0 +1,84 @@
+{
+  "total_segments": 636,
+  "overall_accuracy": 58.64779874213837,
+  "overall_error_rate": 41.35220125786164,
+  "correct_classifications": 373,
+  "incorrect_classifications": 263,
+  "false_negatives_count": 251,
+  "false_positives_count": 12,
+  "false_negative_rate": 39.46540880503145,
+  "false_positive_rate": 1.8867924528301887,
+  "label_type_accuracy": {
+    "NORMAL": {
+      "correct": 352,
+      "total": 364,
+      "accuracy": 96.7032967032967,
+      "error_rate": 3.296703296703297
+    },
+    "SPECIAL": {
+      "correct": 21,
+      "total": 272,
+      "accuracy": 7.720588235294118,
+      "error_rate": 92.27941176470588
+    }
+  },
+  "label_accuracy": {
+    "INQUIRY": {
+      "correct": 343,
+      "total": 364,
+      "accuracy": 94.23076923076923,
+      "error_rate": 5.769230769230769
+    },
+    "HATE_SPEECH": {
+      "correct": 0,
+      "total": 84,
+      "accuracy": 0.0,
+      "error_rate": 100.0
+    },
+    "PROFANITY": {
+      "correct": 13,
+      "total": 158,
+      "accuracy": 8.227848101265822,
+      "error_rate": 91.77215189873418
+    },
+    "SEXUAL_HARASSMENT": {
+      "correct": 0,
+      "total": 20,
+      "accuracy": 0.0,
+      "error_rate": 100.0
+    },
+    "VIOLENCE_THREAT": {
+      "correct": 0,
+      "total": 10,
+      "accuracy": 0.0,
+      "error_rate": 100.0
+    }
+  },
+  "confusion_matrix": {
+    "INQUIRY": {
+      "INQUIRY": 343,
+      "PROFANITY": 12,
+      "COMPLAINT": 5,
+      "REQUEST": 4
+    },
+    "HATE_SPEECH": {
+      "INQUIRY": 76,
+      "PROFANITY": 6,
+      "COMPLAINT": 2
+    },
+    "PROFANITY": {
+      "INQUIRY": 141,
+      "PROFANITY": 13,
+      "COMPLAINT": 1,
+      "REQUEST": 2,
+      "UNREASONABLE_DEMAND": 1
+    },
+    "SEXUAL_HARASSMENT": {
+      "INQUIRY": 19,
+      "PROFANITY": 1
+    },
+    "VIOLENCE_THREAT": {
+      "INQUIRY": 10
+    }
+  }
+}

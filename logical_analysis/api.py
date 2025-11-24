@@ -7,7 +7,7 @@ from django.db.models import Count
 from datetime import datetime
 
 from audio_process.models import CallRecording, SpeakerSegment
-from .models import ClassificationResult
+from .models import LogicalResult as ClassificationResult
 from .schemas import AnalyzeRequest, AnalysisSessionOut, ClassificationResultOut
 from .inference import run_pipeline
 

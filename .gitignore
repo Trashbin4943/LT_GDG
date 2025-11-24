@@ -279,3 +279,66 @@ linguaproject/logic_classify_system/personal/
 # Only documentation in docs/ folders should be tracked
 *.md
 !**/docs/**/*.md
+
+### Machine Learning Training & Model Files ###
+# Model weights and checkpoints
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Training output directories
+checkpoint-*/
+final_model/
+kobert_immorality_intensity_regression/
+*/checkpoint-*/
+*/final_model/
+
+# Model directories (keep base models, ignore trained/fine-tuned models)
+logical_analysis/logic_classify_system/models/*/trained/
+logical_analysis/logic_classify_system/models/*/fine-tuned/
+logical_analysis/logic_classify_system/models/immorality_intensity/
+
+# Training logs
+logs/
+*/logs/
+*.log
+training_logs/
+
+# Training results and metadata
+evaluation_results.json
+batch_*_info.json
+training_info.json
+model_metrics.json
+
+# Dataset files (large JSON files)
+talksets-train-*.json
+talksets-*.json
+*_dataset.json
+*_data.json
+
+# Preprocessed data directories
+temp_extract/
+temp_extract_stt/
+talkset_stt/
+talksets_stt/
+*/temp_*/
+*/_stt/
+
+# Test results and outputs
+test_results/
+test_outputs/
+*/test_results/
+*/test_outputs/
+
+# Model archives and downloads
+*.zip
+*.tar.gz
+*.tar
+model_*.zip
+kobert_*.zip
+
+# Jupyter notebook checkpoints (already in template, but ensuring)
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/

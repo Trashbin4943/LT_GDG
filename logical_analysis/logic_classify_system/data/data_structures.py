@@ -4,7 +4,7 @@ Turn 단위 분석 데이터 구조 정의
 기존 구조를 확장하여 Turn 단위 특징점 추출 결과를 포함
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
@@ -45,49 +45,96 @@ class CustomerAnalysisResult:
     # Turn 단위 특징점 점수 (해당 Turn만으로 추출)
     feature_scores: Dict[str, float]
     # 예: {
+    #   # Special Label 특징점 (korcen + baseline 규칙 기반)
     #   "profanity_score": 0.8,           # 해당 Turn 내 욕설 감지 신뢰도
     #   "threat_score": 0.3,              # 해당 Turn 내 위협 표현 감지
     #   "sexual_harassment_score": 0.0,   # 해당 Turn 내 성희롱 표현 감지
     #   "hate_speech_score": 0.0,         # 해당 Turn 내 혐오표현 감지
     #   "unreasonable_demand_score": 0.6, # 해당 Turn 내 무리한 요구 감지
     #   "repetition_keyword_score": 0.4,  # 해당 Turn 내 반복 표현 키워드 존재 여부
-    #   "normal_label_confidence": 0.85   # 해당 Turn의 Normal Label 분류 신뢰도
+    #   # Special Label 신뢰도 (요인들 합산)
+    #   "special_label_confidence": 0.85, # Special Label을 붙이게 된 계기(요인들)의 합산 신뢰도
+    #   # Special Label 요인별 점수 (probabilities 기반)
+    #   "profanity_factor_score": 0.5,    # PROFANITY 요인 기여도
+    #   "unreasonable_demand_factor_score": 0.3, # UNREASONABLE_DEMAND 요인 기여도
+    #   # 주의: Normal Label confidence는 제거됨 (정량화하기 어려움)
+    #   # Normal Label은 Special Label이 아닐 뿐, 정상 발화의 근거를 확신할 수 없음
     # }
     
     # 추출된 특징점 상세 정보 (해당 Turn 내에서 발견된 것만)
     extracted_features: Dict[str, Any]
     # 예: {
+    #   # Special Label 특징점
     #   "profanity_keywords": ["욕설1"],           # 해당 Turn에서 발견
     #   "threat_patterns": ["위협 패턴1"],         # 해당 Turn에서 발견
-    #   "unreasonable_keywords": ["지금 당장"],    # 해당 Turn에서 발견
+    #   "unreasonable_keywords": ["공짜로", "배상"], # 해당 Turn에서 발견
     #   "repetition_keywords": ["또 같은 말씀"],   # 해당 Turn에서 발견 (실제 반복 여부는 후속 모듈)
-    #   ...
+    #   # 주의: Normal Label 키워드는 추출하지 않음 (Normal Label은 Special Label이 아닐 뿐)
     # }
 
 
 @dataclass
 class AgentAnalysisResult:
-    """상담원 발화 Turn 분석 결과"""
-    # 기본 정보
+    """상담원 발화 Turn 분석 결과 (Keyword 기반 매뉴얼 준수 평가)"""
+    # 기본 정보 (필수 필드 먼저 정의)
     session_id: str
     turn_index: int
     text: str  # 해당 Turn의 발화만
     timestamp: datetime
-    corresponding_customer_label: str  # 해당 손님 발화의 Label
-    
-    # 매뉴얼 준수 분석 결과 (해당 Turn + 해당 Label 매뉴얼 기준)
-    manual_compliance_score: float  # 0.0-1.0
-    compliance_details: Dict[str, Any]
+    corresponding_customer_label: str  # 해당 손님 발화의 Label (CAR)
+
+    # 매뉴얼 준수 분석 결과 (필수 평가 값)
+    manual_compliance_score: float = 0.0  # 0.0-1.0 기본값 (초기 계산 전)
+    compliance_details: Dict[str, Any] = field(default_factory=dict)
+
+    # 선택적 정보 (필수 아님, 뒤쪽에 배치)
+    emotion_label: Optional[str] = None  # 감정 라벨 (향후 감정 분류 시스템에서 가져옴)
     # 예: {
-    #   "phrase_score": 0.8,      # 해당 Turn 내 필수 표현 사용 여부
-    #   "keyword_score": 0.9,     # 해당 Turn 내 필수 키워드 사용 여부
-    #   "procedure_score": 0.7,   # 해당 Turn 내 절차 순서 (Turn 내에서 판단 가능한 부분만)
-    #   "complied_items": ["필수 표현 사용", "절차 안내"],
-    #   "non_complied_items": ["공감 표현 부족"]
+    #   # 인사 검사
+    #   "greeting_score": 1.0,              # 시작 인사 점수
+    #   "greeting_details": {
+    #       "checked": True,
+    #       "found_keywords": ["안녕하세요"],
+    #       "all_keywords": ["안녕하세요", "안녕"]
+    #   },
+    #   "closing_score": 1.0,               # 마무리 인사 점수
+    #   "closing_details": {...},
+    #   # 필수 키워드 검사 (작은 조각 단위)
+    #   "required_keyword_score": 0.9,      # 필수 키워드 포함 점수
+    #   "required_keyword_details": {
+    #       "found_keywords": ["죄송", "불편", "처리"],
+    #       "missing_keywords": ["이해"],
+    #       "found_count": 3,
+    #       "total_count": 4
+    #   },
+    #   # 금지 키워드 검사
+    #   "prohibited_keyword_score": 1.0,    # 금지 키워드 미사용 시 1.0
+    #   "prohibited_keyword_details": {
+    #       "found_prohibited": [],
+    #       "all_prohibited": ["욕", "비하"]
+    #   },
+    #   # 응대 표현 검사
+    #   "response_phrase_score": 0.8,       # 응대 표현 점수
+    #   "response_phrase_details": {
+    #       "found_phrases": ["안내드리겠습니다", "처리해드리겠습니다"],
+    #       "all_phrases": [...]
+    #   },
+    #   # 공감 표현 검사 (empathy_score와 겹치는 부분)
+    #   "empathy_phrase_score": 0.7,        # 공감 표현 점수
+    #   "empathy_phrase_details": {
+    #       "found_phrases": ["불편을 드려 죄송합니다"],
+    #       "all_phrases": [...]
+    #   },
+    #   # 종합 정보
+    #   "found_keywords": ["안녕하세요", "죄송", "불편", "처리"],
+    #   "missing_keywords": ["이해"],
+    #   "found_prohibited": [],
+    #   "complied_items": ["시작 인사: 안녕하세요", "필수 키워드 포함: 죄송, 불편, 처리"],
+    #   "non_complied_items": ["필수 키워드 누락: 이해"]
     # }
     
     # Turn 단위 특징점 점수 (해당 Turn만으로 추출)
-    feature_scores: Dict[str, float]
+    feature_scores: Dict[str, float] = field(default_factory=dict)
     # 예: {
     #   "manual_compliance_score": 0.8,         # 해당 Turn의 매뉴얼 준수도
     #   "information_accuracy_score": 0.9,      # 해당 Turn의 정보 제공 정확성
@@ -97,11 +144,15 @@ class AgentAnalysisResult:
     # }
     
     # 추출된 특징점 상세 정보 (해당 Turn 내에서 발견된 것만)
-    extracted_features: Dict[str, Any]
+    extracted_features: Dict[str, Any] = field(default_factory=dict)
     # 예: {
-    #   "used_phrases": ["안내드리겠습니다"],     # 해당 Turn에서 사용된 표현
-    #   "missing_phrases": ["불편을 드려 죄송합니다"],  # 해당 Turn에서 미사용 표현
-    #   "used_keywords": ["처리", "절차"],        # 해당 Turn에서 사용된 키워드
+    #   # 매뉴얼 준수도 관련
+    #   "used_keywords": ["안녕하세요", "죄송", "불편", "처리"],  # 사용된 키워드 (compliance_details에서 추출)
+    #   "missing_keywords": ["이해"],                            # 누락된 필수 키워드
+    #   "prohibited_keywords": [],                               # 금지 키워드 (사용된 경우)
+    #   "empathy_keywords": ["불편을 드려 죄송합니다"],          # 공감 표현 (구 단위)
+    #   # 기타 특징점
+    #   "solution_keywords": ["처리", "조치"],                   # 해결 방안 키워드
     #   ...
     # }
 
@@ -132,4 +183,5 @@ class PipelineResult:
     session_id: str
     turn_results: List[TurnAnalysisResult]  # Turn 단위 분석 결과 리스트
     timestamp: Optional[datetime] = None
+
 

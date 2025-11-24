@@ -79,3 +79,5 @@ class ProfanityDetector:
             method=None
         )
 
+
+
