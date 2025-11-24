@@ -14,15 +14,15 @@ from pathlib import Path
 import environ
 import os
 
-Env=environ.Env()
-env = Env()
-env.read_env()
-
 import os
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
