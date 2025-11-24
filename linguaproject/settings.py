@@ -112,8 +112,16 @@ WSGI_APPLICATION = 'linguaproject.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.environ.get('DB_ENGINE'),  # DB 엔진
+        'NAME': os.environ.get('DB_NAME', 'django_db'),      # DB 이름
+        'USER': os.environ.get('DB_USER', 'root'),           # DB 사용자명
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),       # DB 비밀번호
+        'HOST': os.environ.get('DB_HOST', 'localhost'),      # MySQL 호스트 주소 (IP 또는 도메인)
+        'PORT': os.environ.get('DB_PORT', '3306'),           # MySQL 포트 (보통 3306)
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'charset': 'utf8mb4',
+        },
     }
 }
 
