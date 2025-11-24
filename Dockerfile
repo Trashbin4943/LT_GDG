@@ -4,8 +4,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
+RUN mkdir -p /app/cache && chmod -R 777 /app/cache
 
-RUN mkdir -p /app/cache
 ENV HF_HOME=/app/cache
 ENV TRANSFORMERS_CACHE=/app/cache
 
