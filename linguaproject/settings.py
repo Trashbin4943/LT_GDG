@@ -16,9 +16,7 @@ import os
 
 Env=environ.Env()
 
-env = Env(
-    DEBUG=(bool, False)
-)
+env = Env()
 
 import os
 HF_TOKEN = os.getenv("HF_TOKEN")
