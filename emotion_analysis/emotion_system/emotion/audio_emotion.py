@@ -4,8 +4,16 @@ LSTM 기반 음향 감정 분석
 감정라벨을 출력합니다.
 '''
 
-import torch
-import torch.nn as nn
+try:
+    import torch
+    import torch.nn as nn
+except ImportError:
+    torch = None
+    class _DummyModule:
+        def __getattr__(self, name):
+            raise RuntimeError("PyTorch is not available in this deployment.")
+
+    nn = _DummyModule()
 from .label_map import label_map
 
 class SimpleLSTM(nn.Module):
