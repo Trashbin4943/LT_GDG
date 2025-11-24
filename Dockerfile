@@ -10,6 +10,9 @@ ENV HF_HOME=/app/cache
 ENV TRANSFORMERS_CACHE=/app/cache
 
 RUN apt-get update && apt-get install -y \
+    pkg-config \
+    default-libmysqlclient-dev \
+    build-essential \
     libsndfile1 \
     ffmpeg \
     gcc \
