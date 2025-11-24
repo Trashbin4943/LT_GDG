@@ -17,8 +17,6 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements2.txt .
-
-
 RUN pip install --no-cache-dir -r requirements2.txt
 
 COPY . .
