@@ -21,4 +21,4 @@ PyYAML==6.0.2
 python-dateutil==2.9.0.post0
 tiktoken==0.7.0
 urllib3==2.2.2
-django-environ==0.10.1
+django-environ==0.11.2
