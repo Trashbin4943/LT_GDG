@@ -5,6 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+RUN mkdir -p /app/cache
+ENV HF_HOME=/app/cache
+ENV TRANSFORMERS_CACHE=/app/cache
 
 RUN apt-get update && apt-get install -y \
     libsndfile1 \
