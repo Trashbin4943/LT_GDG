@@ -15,8 +15,8 @@ import environ
 import os
 
 Env=environ.Env()
-
 env = Env()
+env.read_env()
 
 import os
 HF_TOKEN = os.getenv("HF_TOKEN")
@@ -32,8 +32,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG')
-
+DEBUG = env.bool('DEBUG', default=False)
 ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='').split(',')
 
 
