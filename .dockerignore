@@ -1,16 +1,74 @@
+# Git 및 버전 관리
 .git
+.gitignore
+.env
+.venv
+venv/
+env/
+
+# Python 캐시
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 모델 파일 (너무 큼)
 *.pt
 *.pth
 *.bin
 *.safetensors
 *.ckpt
+*.onnx
+*.pkl
+*.joblib
+
+# 오디오/비디오 파일
 *.mp3
 *.wav
+*.flac
+*.ogg
+*.mp4
+*.avi
+*.mov
+
+# 데이터 파일
 *.npy
 *.npz
+*.h5
+*.hdf5
 data/
 datasets/
 models/
 whisper/
 pyannote/
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 로그 및 임시 파일
+*.log
+*.sqlite3
+db.sqlite3
+
+# 미디어 폴더
+media/
+static/
+staticfiles/
+
+# 테스트 및 커버리지
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+
+# OS 파일
+.DS_Store
+Thumbs.db
+*.bak
