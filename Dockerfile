@@ -11,11 +11,9 @@ ENV TRANSFORMERS_CACHE=/app/cache
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
-    default-libmysqlclient-dev \
     build-essential \
     libsndfile1 \
-    ffmpeg \
-    gcc \
+    ffmpeg \w \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,4 +26,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["gunicorn", "linguaproject.wsgi:application", "--bind", "0.0.0.0:8080", "--timeout", "600"]
+CMD ["gunicorn", "linguaproject.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "600"]
