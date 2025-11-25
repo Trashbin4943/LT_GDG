@@ -19,7 +19,10 @@ import json
 from huggingface_hub import login
 # torchaudio 대신 soundfile과 torch를 사용하여 오디오 로딩을 직접 처리합니다.
 import soundfile as sf 
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None
 import numpy as np
 
 # 환경 변수 로드
@@ -132,13 +135,27 @@ def diarize_and_transcribe(audio_path, save_json=False, json_path="segments.json
 
 '''
 
-from faster_whisper import WhisperModel
 import json
 
-# Whisper 모델 초기화 (CPU 환경에서는 small 권장)
-whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+# faster_whisper는 선택적 의존성으로 처리
+try:
+    from faster_whisper import WhisperModel
+    # Whisper 모델 초기화 (CPU 환경에서는 small 권장)
+    whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+    WHISPER_AVAILABLE = True
+except ImportError:
+    whisper_model = None
+    WHISPER_AVAILABLE = False
+    print("⚠️ [Import Warning] faster_whisper not available. STT functionality disabled.")
 
 def transcribe_with_timestamps(audio_path, save_json=False, json_path="segments.json"):
+    """
+    Whisper STT 전용 함수 (화자 분리 없음)
+    """
+    if not WHISPER_AVAILABLE:
+        print("❌ [STT Error] faster_whisper is not installed. Returning empty results.")
+        return []
+    
     # 🎤 Whisper STT 실행
     segments, info = whisper_model.transcribe(audio_path, language="ko")
 

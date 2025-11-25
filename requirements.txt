@@ -1,18 +1,27 @@
 # ===== Web Framework =====
 Django==5.1.2
 django-ninja==1.5.0
+django-ninja-jwt==5.3.1
+gunicorn==21.2.0
+django-environ==0.11.2
+django-storages==1.14.2
+boto3==1.34.34
+mysqlclient==2.2.7
 
-# ===== Whisper STT =====
+# ===== AI & Audio Core =====
+transformers==4.37.2
 faster-whisper==1.2.1
 ctranslate2==4.6.1
-tokenizers==0.22.1
-sentencepiece==0.2.1
+tokenizers==0.15.2
+sentencepiece==0.1.99
 
 # ===== Audio Processing =====
-librosa==0.10.2.post1
+# librosa와 transformers 오디오 기능에 scipy가 필수입니다.
+librosa==0.10.1
 soundfile==0.12.1
-soxr==0.3.7
 pydub==0.25.1
+audioread==3.0.1
+scipy==1.12.0
 
 # ===== Utilities =====
 numpy==1.26.4
@@ -21,4 +30,3 @@ PyYAML==6.0.2
 python-dateutil==2.9.0.post0
 tiktoken==0.7.0
 urllib3==2.2.2
-django-environ

@@ -29,7 +29,7 @@ def create_company(request, payload: CompanyCreateSchema):
     
     return {
         "message": "회사가 생성되었습니다.",
-        "company_id": company.id,
+        "company_id": str(company.id),
         "company_name": company.name
     }
 

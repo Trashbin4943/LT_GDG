@@ -4,7 +4,7 @@ Turn 단위 분석 데이터 구조 정의
 기존 구조를 확장하여 Turn 단위 특징점 추출 결과를 포함
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
@@ -76,17 +76,19 @@ class CustomerAnalysisResult:
 @dataclass
 class AgentAnalysisResult:
     """상담원 발화 Turn 분석 결과 (Keyword 기반 매뉴얼 준수 평가)"""
-    # 기본 정보
+    # 기본 정보 (필수 필드 먼저 정의)
     session_id: str
     turn_index: int
     text: str  # 해당 Turn의 발화만
     timestamp: datetime
     corresponding_customer_label: str  # 해당 손님 발화의 Label (CAR)
+
+    # 매뉴얼 준수 분석 결과 (필수 평가 값)
+    manual_compliance_score: float = 0.0  # 0.0-1.0 기본값 (초기 계산 전)
+    compliance_details: Dict[str, Any] = field(default_factory=dict)
+
+    # 선택적 정보 (필수 아님, 뒤쪽에 배치)
     emotion_label: Optional[str] = None  # 감정 라벨 (향후 감정 분류 시스템에서 가져옴)
-    
-    # 매뉴얼 준수 분석 결과 (Keyword 기반, 감정 라벨 + CAR 조합 기준)
-    manual_compliance_score: float  # 0.0-1.0
-    compliance_details: Dict[str, Any]
     # 예: {
     #   # 인사 검사
     #   "greeting_score": 1.0,              # 시작 인사 점수
@@ -132,7 +134,7 @@ class AgentAnalysisResult:
     # }
     
     # Turn 단위 특징점 점수 (해당 Turn만으로 추출)
-    feature_scores: Dict[str, float]
+    feature_scores: Dict[str, float] = field(default_factory=dict)
     # 예: {
     #   "manual_compliance_score": 0.8,         # 해당 Turn의 매뉴얼 준수도
     #   "information_accuracy_score": 0.9,      # 해당 Turn의 정보 제공 정확성
@@ -142,7 +144,7 @@ class AgentAnalysisResult:
     # }
     
     # 추출된 특징점 상세 정보 (해당 Turn 내에서 발견된 것만)
-    extracted_features: Dict[str, Any]
+    extracted_features: Dict[str, Any] = field(default_factory=dict)
     # 예: {
     #   # 매뉴얼 준수도 관련
     #   "used_keywords": ["안녕하세요", "죄송", "불편", "처리"],  # 사용된 키워드 (compliance_details에서 추출)
