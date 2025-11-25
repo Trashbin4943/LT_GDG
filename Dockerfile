@@ -1,3 +1,5 @@
+#==커밋용 각주처리
+
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
