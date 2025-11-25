@@ -42,6 +42,11 @@ class CustomerAnalysisResult:
     profanity_result: ProfanityResult
     classification_result: ClassificationResult
     
+    # 비윤리 강도 모델 결과 (선택사항)
+    intensity: Optional[float] = None  # 예측된 비윤리 강도 (0.0 ~ 3.0)
+    is_immoral: Optional[str] = None  # 비윤리 여부: True, False, "확인 필요"
+    # "확인 필요": intensity >= 1.0이지만 기존 분류기로는 비윤리로 판단되지 않은 경우
+    
     # Turn 단위 특징점 점수 (해당 Turn만으로 추출)
     feature_scores: Dict[str, float]
     # 예: {
@@ -167,9 +172,11 @@ class TurnAnalysisResult:
     # 주의: 이 점수들은 "해당 Turn"에 대한 평가만 포함
     turn_scores: Dict[str, float]
     # 예: {
-    #   "customer_problem_score": 0.7,           # 해당 Turn의 손님 문제 발생 가능성
+    #   "customer_problem_score": 0.7,           # 해당 Turn의 손님 문제 발생 가능성 (intensity 포함)
     #   "agent_response_quality_score": 0.8,     # 해당 Turn의 상담원 대응 품질
     #   "turn_risk_score": 0.65,                 # 해당 Turn의 리스크 점수
+    #   "intensity_score": 2.5,                  # 비윤리 강도 (0.0 ~ 3.0, 선택사항)
+    #   "immorality_status_score": 1.0,          # 비윤리 상태 점수 (True=1.0, "확인 필요"=0.7, False=0.0)
     #   # 주의: "overall_turn_score"는 Turn 단위 평가지만,
     #   #       세션 전체 평가는 후속 모듈에서 수행
     # }

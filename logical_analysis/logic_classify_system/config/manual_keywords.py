@@ -197,3 +197,4 @@ class ManualKeywordConfig:
 # 전역 매뉴얼 키워드 설정 인스턴스
 manual_keyword_config = ManualKeywordConfig()
 
+

@@ -12,6 +12,14 @@ from ..profanity_filter.profanity_detector import ProfanityDetector
 from ..intent_classifier.intent_predictor import IntentPredictor
 from ..feature_extractor.customer_feature_extractor import CustomerFeatureExtractor
 from ..feature_extractor.agent_feature_extractor import AgentFeatureExtractor
+
+# Intensity 모델 (선택사항)
+try:
+    from ..intent_classifier.immorality_intensity_predictor import ImmoralityIntensityPredictor
+    INTENSITY_MODEL_AVAILABLE = True
+except ImportError:
+    INTENSITY_MODEL_AVAILABLE = False
+    ImmoralityIntensityPredictor = None
 from ..data.data_structures import (
     PipelineResult,
     TurnAnalysisResult,
@@ -25,15 +33,29 @@ from ..data.data_structures import (
 class MainPipeline:
     """Turn 단위 분석 메인 파이프라인"""
     
-    def __init__(self):
+    def __init__(self, use_intensity_model: bool = True):
         """
         파이프라인 초기화
+        
+        Args:
+            use_intensity_model: 비윤리 강도 모델 사용 여부 (기본: True)
         """
         self.turn_splitter = TurnSplitter()
         self.profanity_detector = ProfanityDetector(use_korcen=False)
         self.intent_predictor = IntentPredictor()
         self.customer_feature_extractor = CustomerFeatureExtractor()
         self.agent_feature_extractor = AgentFeatureExtractor()
+        
+        # 비윤리 강도 모델 초기화 (선택사항)
+        self.intensity_predictor = None
+        if use_intensity_model and INTENSITY_MODEL_AVAILABLE and ImmoralityIntensityPredictor:
+            try:
+                self.intensity_predictor = ImmoralityIntensityPredictor()
+                if not self.intensity_predictor.is_available():
+                    self.intensity_predictor = None
+            except Exception as e:
+                print(f"Warning: 비윤리 강도 모델을 로드할 수 없습니다: {e}")
+                self.intensity_predictor = None
     
     def process(self, stt_data: Dict[str, Any]) -> PipelineResult:
         """
@@ -155,6 +177,28 @@ class MainPipeline:
             classification_result
         )
         
+        # 4. 비윤리 강도 예측 (선택사항)
+        intensity = None
+        is_immoral = None
+        
+        if self.intensity_predictor and self.intensity_predictor.is_available():
+            try:
+                intensity_result = self.intensity_predictor.predict(text)
+                intensity = intensity_result['intensity']
+                
+                # is_immoral 판단 로직
+                # 1. intensity >= 1.0이고 기존 분류기가 비윤리로 판단하지 않은 경우 → "확인 필요"
+                if intensity >= 1.0 and classification_result.label_type == "NORMAL":
+                    is_immoral = "확인 필요"
+                # 2. intensity >= 1.0이고 기존 분류기도 비윤리로 판단한 경우 → True
+                elif intensity >= 1.0 and classification_result.label_type == "SPECIAL":
+                    is_immoral = True
+                # 3. intensity < 1.0이면 → False
+                else:
+                    is_immoral = False
+            except Exception as e:
+                print(f"Warning: 비윤리 강도 예측 중 오류 발생: {e}")
+        
         return CustomerAnalysisResult(
             session_id=session_id,
             turn_index=turn_index,
@@ -163,7 +207,9 @@ class MainPipeline:
             profanity_result=profanity_result,
             classification_result=classification_result,
             feature_scores=feature_scores,
-            extracted_features=extracted_features
+            extracted_features=extracted_features,
+            intensity=intensity,
+            is_immoral=is_immoral
         )
     
     def _analyze_agent_turn(
@@ -245,7 +291,18 @@ class MainPipeline:
             customer_result.feature_scores.get("unreasonable_demand_score", 0.0),
             customer_result.feature_scores.get("repetition_keyword_score", 0.0)  # 반복 표현 점수 추가
         ]
+        
+        # Intensity 모델 결과 반영 (intensity가 있으면 통합 점수에 반영)
+        if customer_result.intensity is not None:
+            # intensity를 0.0~1.0 범위로 정규화 (0.0~3.0 → 0.0~1.0)
+            intensity_normalized = min(customer_result.intensity / 3.0, 1.0)
+            problem_scores.append(intensity_normalized)
+        
         turn_scores["customer_problem_score"] = max(problem_scores)
+        
+        # Intensity 관련 점수 추가
+        if customer_result.intensity is not None:
+            turn_scores["intensity_score"] = customer_result.intensity
         
         # 2. 상담원 대응 품질 점수 (상담원 발화가 있는 경우)
         if agent_result:
