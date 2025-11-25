@@ -15,6 +15,7 @@ ctranslate2==4.6.1
 tokenizers==0.15.2
 sentencepiece==0.1.99
 
+#== git commit용 각주처리==
 # ===== Audio Processing =====
 # librosa와 transformers 오디오 기능에 scipy가 필수입니다.
 librosa==0.10.1
