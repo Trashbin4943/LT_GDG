@@ -4,10 +4,7 @@
 학습된 모델을 사용하여 발화를 분류하는 클래스
 """
 
-try:
-    import torch
-except ImportError:  # 배포 환경에서 torch 미설치 가능
-    torch = None
+import torch
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -52,10 +49,7 @@ class SentenceClassifier:
         self.model_path = Path(model_path)
         
         # GPU 설정
-        if torch is None:
-            self.device = 'cpu'
-        else:
-            self.device = torch.device('cuda' if use_gpu and torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if use_gpu and torch.cuda.is_available() else 'cpu')
         
         # 모델 로드
         self._load_model()

@@ -3,32 +3,17 @@ KoBERT 기반 텍스트 감정 분석
 발화 텍스트를 입력받아 감정 라벨을 출력합니다.
 '''
 
-try:
-    import torch
-except ImportError:
-    torch = None
-
-try:
-    from transformers import BertTokenizer, BertForSequenceClassification
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    BertTokenizer = None
-    BertForSequenceClassification = None
-    TRANSFORMERS_AVAILABLE = False
-    print("⚠️ [Import Warning] transformers not available. Text emotion classification disabled.")
-
+import torch
+from transformers import BertTokenizer, BertForSequenceClassification
 from .label_map import label_map
 import os
 
 _tokenizer = None
 _model = None
-_device = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
+_device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def load_text_model():
     global _tokenizer, _model, _device
-    
-    if not TRANSFORMERS_AVAILABLE:
-        raise ImportError("transformers library is not installed. Cannot load text emotion model.")
     
     if _model is None:
         print("⏳ [AI] KoBERT 텍스트 감정 모델 로딩 중...")
@@ -67,22 +52,10 @@ def load_text_model():
 #     return label_map[label]
 
 def classify_text_emotion(text):
-    """
-    텍스트 감정 분석 함수
-    transformers가 없으면 기본 중립 감정 반환
-    """
     global _tokenizer, _model, _device
 
-    if not TRANSFORMERS_AVAILABLE:
-        print("⚠️ [Text Emotion] transformers not available. Returning default neutral emotion.")
-        return "neutral", 0.0
-
     if _model is None or _tokenizer is None:
-        try:
-            load_text_model()
-        except ImportError as e:
-            print(f"⚠️ [Text Emotion] Model loading failed: {e}")
-            return "neutral", 0.0
+        load_text_model()
 
     try:
         inputs = _tokenizer(
@@ -108,4 +81,4 @@ def classify_text_emotion(text):
     
     except Exception as e:
         print(f"감정 분류 실패: {e}")
-        return "neutral", 0.0
+        raise e
