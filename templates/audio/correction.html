@@ -1,0 +1,294 @@
+{% extends 'base.html' %} {% block title %}데이터 보정 - LinguaTech{% endblock %} {% block content %}
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">📝 화자 및 텍스트 보정</h4>
+            <p class="text-muted mb-0" id="fileName">
+                <span class="spinner-border spinner-border-sm text-primary" role="status"></span> 파일 정보 로딩 중...
+            </p>
+        </div>
+        <div>
+            <button onclick="saveAndAnalyze()" id="actionBtn" class="btn btn-primary btn-lg shadow-sm px-4">
+                <i class="bi bi-cpu me-2"></i>저장 및 분석 시작
+            </button>
+        </div>
+    </div>
+
+    <div class="alert alert-light border shadow-sm mb-4">
+        <h6 class="fw-bold text-primary"><i class="bi bi-info-circle-fill me-2"></i>작업 가이드</h6>
+        <ul class="mb-0 small text-secondary">
+            <li>
+                <strong>화자 변경:</strong> 체크박스가 <span class="text-primary fw-bold">켜져 있으면(☑) 상담사</span>,
+                <span class="text-dark fw-bold">꺼져 있으면(☐) 고객</span>입니다.
+            </li>
+            <li><strong>텍스트 수정:</strong> 오타나 잘못 인식된 내용은 텍스트 박스를 클릭하여 직접 수정하세요.</li>
+            <li>수정이 완료되면 우측 상단의 <strong>[저장 및 분석 시작]</strong> 버튼을 눌러주세요.</li>
+        </ul>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-body-tertiary py-3 border-bottom sticky-top" style="z-index: 10; top: 0">
+            <div class="row fw-bold text-secondary text-center align-items-center small">
+                <div class="col-1" title="체크하면 상담사입니다">상담사?</div>
+                <div class="col-2">시간 (Time)</div>
+                <div class="col-9 text-start ps-3">발화 내용 (Click to Edit)</div>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div id="segmentList" class="list-group list-group-flush">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">데이터를 불러오는 중입니다...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SESSION_ID = '{{ session_id }}';
+</script>
+
+<style>
+    /* 텍스트 영역 스타일 커스텀 */
+    .text-input {
+        transition: background-color 0.2s;
+        line-height: 1.5;
+    }
+    .text-input:focus {
+        background-color: #f8f9fa;
+        box-shadow: none;
+        outline: none;
+    }
+    /* 상담사 행 강조 스타일 */
+    .row-counselor {
+        background-color: rgba(13, 110, 253, 0.05); /* Bootstrap Primary 연한 배경 */
+    }
+    .segment-row {
+        transition: background-color 0.2s;
+    }
+</style>
+{% endblock %} {% block extra_js %}
+<script>
+    // 페이지 로드 시 실행
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDetail();
+    });
+
+    // ==========================================
+    // 1. 데이터 불러오기 (GET)
+    // ==========================================
+    async function loadDetail() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            alert('로그인이 필요합니다.');
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            // 오디오 처리 API 호출
+            const response = await fetch(`/api/audio/${SESSION_ID}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!response.ok) throw new Error('데이터 로드 실패');
+
+            const data = await response.json();
+
+            // 파일명 표시
+            const dateStr = new Date(data.created_at).toLocaleDateString();
+            document.getElementById('fileName').innerHTML = `
+                <i class="bi bi-file-earmark-music me-1"></i> ${data.file_name} 
+                <span class="text-muted ms-2 small">(${dateStr})</span>
+            `;
+
+            // 리스트 렌더링
+            renderSegments(data.segments);
+        } catch (error) {
+            console.error(error);
+            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+            document.getElementById(
+                'segmentList'
+            ).innerHTML = `<div class="text-center py-5 text-danger">데이터 로드 실패: ${error.message}</div>`;
+        }
+    }
+
+    // ==========================================
+    // 2. 화면 렌더링 (Render)
+    // ==========================================
+    function renderSegments(segments) {
+        const container = document.getElementById('segmentList');
+
+        if (!segments || segments.length === 0) {
+            container.innerHTML = `<div class="text-center py-5 text-muted">데이터가 없습니다.</div>`;
+            return;
+        }
+
+        let html = '';
+        segments.forEach((seg) => {
+            const startFmt = formatTime(seg.start_time);
+            const endFmt = formatTime(seg.end_time);
+
+            // speaker_label이 'counselor'이면 체크된 상태
+            const isCounselor = seg.speaker_label === 'counselor';
+            const checkedAttr = isCounselor ? 'checked' : '';
+            const rowBgClass = isCounselor ? 'row-counselor' : '';
+
+            html += `
+                <div class="list-group-item list-group-item-action segment-row ${rowBgClass}" 
+                     data-id="${seg.id}" id="row-${seg.id}">
+                    <div class="row align-items-center">
+                        <div class="col-1 text-center">
+                            <div class="form-check d-flex justify-content-center">
+                                <input type="checkbox" class="form-check-input speaker-checkbox" 
+                                       style="transform: scale(1.3); cursor: pointer;"
+                                       ${checkedAttr}
+                                       onchange="toggleRowColor(${seg.id}, this.checked)">
+                            </div>
+                        </div>
+                        
+                        <div class="col-2 text-muted small text-center font-monospace">
+                            ${startFmt} - ${endFmt}
+                        </div>
+                        
+                        <div class="col-9">
+                            <textarea class="form-control border-0 bg-transparent text-input" 
+                                      rows="1" 
+                                      style="resize: none; overflow: hidden;"
+                                      oninput="autoResize(this)"
+                                      placeholder="내용을 입력하세요...">${seg.text || ''}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+
+        // 렌더링 후 textarea 높이 자동 조절
+        document.querySelectorAll('.text-input').forEach((el) => autoResize(el));
+    }
+
+    // ==========================================
+    // 3. 저장 및 분석 실행 (Action)
+    // ==========================================
+    async function saveAndAnalyze() {
+        const token = localStorage.getItem('access_token');
+        const btn = document.getElementById('actionBtn');
+        const originalBtnText = btn.innerHTML;
+
+        // 버튼 비활성화 및 로딩 표시
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 저장 중...`;
+
+        // 화면의 데이터 수집
+        const rows = document.querySelectorAll('.segment-row');
+        const updateData = [];
+
+        rows.forEach((row) => {
+            const id = parseInt(row.getAttribute('data-id'));
+            const isChecked = row.querySelector('.speaker-checkbox').checked;
+            const textValue = row.querySelector('.text-input').value;
+
+            // 서버 스키마(SpeakerUpdateSchema)에 맞춤
+            updateData.push({
+                id: id,
+                text: textValue,
+                is_counselor: isChecked,
+            });
+        });
+
+        try {
+            // --- Step 1: 수정 내역 저장 (Audio Process) ---
+            const saveRes = await fetch(`/api/audio/${SESSION_ID}/confirm`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ segments: updateData }),
+            });
+
+            if (!saveRes.ok) throw new Error('수정 내역 저장 실패');
+            console.log('1. 수정 내역 저장 완료');
+
+            // --- Step 2: 감정 분석 (Emotion Analysis) ---
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 감정 분석 중...`;
+            const emoRes = await fetch(`/api/emotion/${SESSION_ID}/analyze`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!emoRes.ok) throw new Error('감정 분석 실패');
+            console.log('2. 감정 분석 완료');
+
+            // --- Step 3: 논리/위협 분석 (Logical Analysis) ---
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 논리 분석 중...`;
+
+            // logical_analysis API 호출 (SessionAnalysisRequest 스키마에 맞춤)
+            // 고객 발화만 추려서 보낼 수도 있고, 전체를 보내서 백엔드가 거르게 할 수도 있음
+            // 여기서는 수정한 데이터를 기반으로 구성해서 보냄
+            const logicalPayload = {
+                session_id: SESSION_ID,
+                segments: updateData.map((item) => ({
+                    speaker: item.is_counselor ? 'agent' : 'customer',
+                    text: item.text,
+                    timestamp: new Date().toISOString(), // 필요 시 실제 시간 사용
+                })),
+            };
+
+            const logicRes = await fetch(`/api/analysis/analyze/customer`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(logicalPayload),
+            });
+
+            if (!logicRes.ok) {
+                const errJson = await logicRes.json();
+                console.warn('논리 분석 경고:', errJson);
+                // 논리 분석 실패는 치명적이지 않다면 진행할 수도 있음 (여기선 에러로 처리)
+                throw new Error('논리 분석 실패: ' + (errJson.message || 'Unknown error'));
+            }
+            console.log('3. 논리 분석 완료');
+
+            // --- 완료: 대시보드로 이동 ---
+            alert('모든 분석이 완료되었습니다!\n결과 대시보드로 이동합니다.');
+            window.location.href = `/audio/dashboard/${SESSION_ID}/`; // 뷰 URL로 이동
+        } catch (error) {
+            console.error(error);
+            alert('작업 중 오류 발생: ' + error.message);
+
+            // 에러 발생 시 버튼 복구
+            btn.disabled = false;
+            btn.innerHTML = originalBtnText;
+        }
+    }
+
+    // ==========================================
+    // 유틸리티 함수
+    // ==========================================
+
+    // Textarea 높이 자동 조절
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    // 체크박스 변경 시 행 배경색 토글
+    window.toggleRowColor = function (id, isChecked) {
+        const row = document.getElementById(`row-${id}`);
+        if (isChecked) {
+            row.classList.add('row-counselor');
+        } else {
+            row.classList.remove('row-counselor');
+        }
+    };
+
+    // 초 -> MM:SS 변환
+    function formatTime(seconds) {
+        if (!seconds && seconds !== 0) return '00:00';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+</script>
+{% endblock %}

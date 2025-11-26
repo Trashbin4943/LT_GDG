@@ -1,0 +1,68 @@
+{% extends 'base.html' %} {% block title %}로그인 - LinguaTech{% endblock %} {% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">로그인</h3>
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">아이디</label>
+                        <input type="text" class="form-control" id="username" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">비밀번호</label>
+                        <input type="password" class="form-control" id="password" required />
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">로그인</button>
+                    </div>
+                </form>
+                <div class="text-center mt-3">
+                    <small>계정이 없으신가요? <a href="/signup">회원가입</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script>
+    console.log('🧹 기존 토큰 삭제 중...');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.clear();
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            // 우리가 만든 API 호출
+            const response = await fetch('/api/account/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log('서버 응답 토큰:', data.token.access.substring(0, 15) + '...');
+                localStorage.setItem('access_token', data.token.access);
+                localStorage.setItem('refresh_token', data.token.refresh);
+
+                alert(data.user.korean_name + '님 환영합니다!');
+                window.location.href = '/';
+            } else {
+                alert('로그인 실패: ' + (data.message || '아이디/비번을 확인하세요'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('서버 통신 중 오류가 발생했습니다.');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import analyze_emotion_view
+
+app_name = 'emotion'
 
 urlpatterns = [
-    path("analyze/", analyze_emotion_view, name="analyze_emotion"),
 ]

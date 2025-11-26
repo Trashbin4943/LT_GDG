@@ -1,0 +1,216 @@
+{% extends 'base.html' %} {% block title %}분석 결과 보정 - LinguaTech{% endblock %} {% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">📝 화자 분리 보정</h4>
+            <p class="text-muted mb-0" id="fileName">로딩 중...</p>
+        </div>
+        <div>
+            <button onclick="saveChanges()" class="btn btn-primary btn-lg shadow-sm">💾 저장 및 완료</button>
+        </div>
+    </div>
+
+    <div class="alert alert-info border-0 bg-info-subtle text-info-emphasis mb-4">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <strong>사용 방법:</strong>
+        1. <u>상담사</u>가 말한 구간은 체크박스를 켜주세요.<br />
+        2. 오타나 잘못된 내용은 텍스트 박스를 클릭하여 직접 <u>수정</u>할 수 있습니다.
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 border-bottom">
+            <div class="row fw-bold text-secondary text-center align-items-center">
+                <div class="col-1">상담사?</div>
+                <div class="col-2">시간</div>
+                <div class="col-9 text-start ps-3">발언 내용 (클릭하여 수정)</div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="segmentList" class="list-group list-group-flush">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">데이터를 불러오는 중입니다...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SESSION_ID = '{{ session_id }}';
+</script>
+
+{% endblock %} {% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDetail();
+    });
+
+    // 1. 데이터 불러오기
+    async function loadDetail() {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            alert('로그인이 필요합니다.');
+            window.location.href = '/login';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/audio/${SESSION_ID}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!response.ok) throw new Error('데이터 로드 실패');
+
+            const data = await response.json();
+
+            const fileNameEl = document.getElementById('fileName');
+            if (fileNameEl) fileNameEl.innerText = data.file_name;
+
+            renderSegments(data.segments);
+        } catch (error) {
+            console.error(error);
+            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+        }
+    }
+
+    // 2. 리스트 그리기 (감정 뱃지 포함)
+    function renderSegments(segments) {
+        const container = document.getElementById('segmentList');
+        if (segments.length === 0) {
+            container.innerHTML = `<div class="text-center py-5 text-muted">데이터 없음</div>`;
+            return;
+        }
+
+        let html = '';
+        segments.forEach((seg) => {
+            const startFmt = formatTime(seg.start_time);
+            const endFmt = formatTime(seg.end_time);
+            const isCounselor = seg.speaker_label === 'counselor';
+
+            const checkedAttr = isCounselor ? 'checked' : '';
+            const rowClass = isCounselor ? 'bg-primary-subtle bg-opacity-10' : '';
+
+            // 감정 뱃지 생성
+            const emotionBadge = getEmotionBadge(seg.emotion_label, seg.emotion_confidence);
+
+            html += `
+                <div class="list-group-item list-group-item-action ${rowClass} segment-row" 
+                     data-id="${seg.id}" id="row-${seg.id}">
+                    
+                    <div class="row align-items-center">
+                        <div class="col-1 text-center">
+                            <input type="checkbox" class="form-check-input speaker-checkbox" 
+                                   style="transform: scale(1.3); cursor: pointer;"
+                                   ${checkedAttr}
+                                   onchange="toggleRowColor(${seg.id}, this.checked)">
+                        </div>
+                        <div class="col-2 text-muted small text-center">
+                            ${startFmt} ~ ${endFmt}
+                        </div>
+                        <div class="col-9">
+                            <div class="mb-1">${emotionBadge}</div>
+                            <textarea class="form-control border-0 bg-transparent text-input" 
+                                      rows="1" 
+                                      style="resize: none; overflow: hidden; box-shadow: none;"
+                                      oninput="autoResize(this)">${seg.text}</textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        document.querySelectorAll('.text-input').forEach((el) => autoResize(el));
+    }
+
+    // 3. 감정 뱃지 생성 함수
+    function getEmotionBadge(label, confidence) {
+        if (!label) return '';
+
+        const negative = ['불만', '분노', '격분', '짜증', '경미한 짜증', '실망', '좌절', '불안', '혐오', '피로'];
+        const positive = ['감사', '기쁨', '흥분', '자신감', '애정', '친절'];
+
+        let badgeClass = 'bg-secondary';
+        let icon = '';
+
+        if (negative.includes(label)) {
+            badgeClass = 'bg-danger';
+            icon = '🔥 ';
+        } else if (positive.includes(label)) {
+            badgeClass = 'bg-primary';
+            icon = '🍀 ';
+        }
+
+        const confPercent = confidence ? `(${Math.round(confidence * 100)}%)` : '';
+
+        return `<span class="badge ${badgeClass} rounded-pill mb-1">
+                    ${icon}${label} ${confPercent}
+                </span>`;
+    }
+
+    // 4. 저장 및 분석 로직
+    async function saveChanges() {
+        const token = localStorage.getItem('access_token');
+        const saveBtn = document.querySelector('button[onclick="saveChanges()"]');
+
+        saveBtn.disabled = true;
+        saveBtn.innerText = '💾 저장 중...';
+
+        const rows = document.querySelectorAll('.segment-row');
+        const updateData = [];
+        rows.forEach((row) => {
+            const id = parseInt(row.getAttribute('data-id'));
+            const isChecked = row.querySelector('.speaker-checkbox').checked;
+            const textValue = row.querySelector('.text-input').value;
+            updateData.push({ id, text: textValue, is_counselor: isChecked });
+        });
+
+        try {
+            // A. 저장 요청
+            const saveRes = await fetch(`/api/audio/${SESSION_ID}/confirm`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ segments: updateData }),
+            });
+
+            if (!saveRes.ok) throw new Error('저장 실패');
+
+            // B. 감정 분석 요청
+            saveBtn.innerText = '🤖 감정 분석 중...';
+            const emotionRes = await fetch(`/api/emotion/${SESSION_ID}/analyze`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!emotionRes.ok) throw new Error('감정 분석 실패');
+
+            const emotionData = await emotionRes.json();
+
+            alert(`✅ 완료되었습니다!\n분석된 문장: ${emotionData.analyzed_count}개`);
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            alert('오류 발생: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.innerText = '💾 저장 및 완료';
+        }
+    }
+
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
+    window.toggleRowColor = function (id, isChecked) {
+        const row = document.getElementById(`row-${id}`);
+        if (isChecked) row.classList.add('bg-primary-subtle', 'bg-opacity-10');
+        else row.classList.remove('bg-primary-subtle', 'bg-opacity-10');
+    };
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+</script>
+{% endblock %}

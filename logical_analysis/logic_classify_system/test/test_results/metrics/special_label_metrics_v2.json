@@ -1,0 +1,67 @@
+{
+  "total_turns": 979,
+  "normal_count": 921,
+  "special_count": 58,
+  "normal_ratio": 94.0755873340143,
+  "special_ratio": 5.9244126659857,
+  "label_distribution": {
+    "normal": {
+      "INQUIRY": 899,
+      "COMPLAINT": 9,
+      "REQUEST": 13
+    },
+    "special": {
+      "PROFANITY": 55,
+      "UNREASONABLE_DEMAND": 3
+    }
+  },
+  "confidence_statistics": {
+    "normal": {
+      "mean": 0.30000000000000515,
+      "min": 0.3,
+      "max": 0.3,
+      "median": 0.3,
+      "std": 5.1653420291608264e-15
+    },
+    "special": {
+      "mean": 0.7629310344827588,
+      "min": 0.6000000000000001,
+      "max": 0.935,
+      "median": 0.75,
+      "std": 0.06326659329362727
+    }
+  },
+  "special_label_confidence_stats": {},
+  "label_details": {
+    "INQUIRY": {
+      "count": 899,
+      "ratio": 91.82839632277835,
+      "average_confidence": 0.300000000000005,
+      "examples_count": 5
+    },
+    "PROFANITY": {
+      "count": 55,
+      "ratio": 5.617977528089887,
+      "average_confidence": 0.7594545454545455,
+      "examples_count": 5
+    },
+    "COMPLAINT": {
+      "count": 9,
+      "ratio": 0.9193054136874361,
+      "average_confidence": 0.3,
+      "examples_count": 5
+    },
+    "REQUEST": {
+      "count": 13,
+      "ratio": 1.3278855975485189,
+      "average_confidence": 0.29999999999999993,
+      "examples_count": 5
+    },
+    "UNREASONABLE_DEMAND": {
+      "count": 3,
+      "ratio": 0.30643513789581206,
+      "average_confidence": 0.8266666666666667,
+      "examples_count": 3
+    }
+  }
+}

@@ -1,0 +1,16 @@
+.git
+__pycache__/
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+*.mp3
+*.wav
+*.npy
+*.npz
+data/
+datasets/
+models/
+whisper/
+pyannote/

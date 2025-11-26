@@ -1,0 +1,73 @@
+{
+  "total_turns": 966,
+  "normal_count": 907,
+  "special_count": 59,
+  "normal_ratio": 93.89233954451346,
+  "special_ratio": 6.107660455486543,
+  "label_distribution": {
+    "normal": {
+      "INQUIRY": 907
+    },
+    "special": {
+      "HATE_SPEECH": 34,
+      "UNREASONABLE_DEMAND": 10,
+      "SEXUAL_HARASSMENT": 3,
+      "VIOLENCE_THREAT": 8,
+      "PROFANITY": 4
+    }
+  },
+  "confidence_statistics": {
+    "normal": {
+      "mean": 0.5,
+      "min": 0.5,
+      "max": 0.5,
+      "median": 0.5,
+      "std": 0.0
+    },
+    "special": {
+      "mean": 0.7601694915254238,
+      "min": 0.3,
+      "max": 0.8999999999999999,
+      "median": 0.75,
+      "std": 0.0824096480253861
+    }
+  },
+  "label_details": {
+    "INQUIRY": {
+      "count": 907,
+      "ratio": 93.89233954451346,
+      "average_confidence": 0.5,
+      "examples_count": 5
+    },
+    "HATE_SPEECH": {
+      "count": 34,
+      "ratio": 3.5196687370600417,
+      "average_confidence": 0.7544117647058823,
+      "examples_count": 5
+    },
+    "UNREASONABLE_DEMAND": {
+      "count": 10,
+      "ratio": 1.0351966873706004,
+      "average_confidence": 0.7499999999999999,
+      "examples_count": 5
+    },
+    "SEXUAL_HARASSMENT": {
+      "count": 3,
+      "ratio": 0.3105590062111801,
+      "average_confidence": 0.8000000000000002,
+      "examples_count": 3
+    },
+    "VIOLENCE_THREAT": {
+      "count": 8,
+      "ratio": 0.8281573498964804,
+      "average_confidence": 0.8499999999999999,
+      "examples_count": 5
+    },
+    "PROFANITY": {
+      "count": 4,
+      "ratio": 0.4140786749482402,
+      "average_confidence": 0.625,
+      "examples_count": 4
+    }
+  }
+}

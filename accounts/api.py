@@ -8,6 +8,8 @@ from django.contrib.auth import authenticate
 
 from ninja.errors import HttpError
 from ninja_jwt.tokens import RefreshToken
+from ninja_jwt.authentication import JWTAuth
+from .schemas import UserInfoSchema, UserSignupSchema, UserLoginSchema, LoginResponseSchema, CompanyCreateSchema, DepartmentCreateSchema
 
 from .models import User, Company, Department
 from .schemas import *
@@ -94,11 +96,10 @@ def signup(request, payload: UserSignupSchema):
 
 @router.post("/login", response=LoginResponseSchema)
 def login(request, payload: UserLoginSchema):
-    """
-    [Custom Login] 아이디/비번으로 로그인하고 토큰과 유저 정보를 반환합니다.
-    """
     user = authenticate(username=payload.username, password=payload.password)
 
+    if user:
+        print("로그인 시도한 사용자:", user.username)
     if user is None:
         raise HttpError(401, "아이디 또는 비밀번호가 올바르지 않습니다.")
 
@@ -122,4 +123,15 @@ def login(request, payload: UserLoginSchema):
             "company_name": user.company.name if user.company else None,
             "department_name": user.department.name if user.department else None,
         }
+    }
+
+@router.get("/me", response=UserInfoSchema, auth=JWTAuth())
+def get_user_profile(request):
+    return {
+        "id": request.user.id,
+        "username": request.user.username,
+        "korean_name": request.user.korean_name,
+        "employee_id": request.user.employee_id,
+        "company_name": request.user.company.name if request.user.company else "소속 없음",
+        "department_name": request.user.department.name if request.user.department else "-"
     }

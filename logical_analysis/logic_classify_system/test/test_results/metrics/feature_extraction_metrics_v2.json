@@ -1,0 +1,152 @@
+{
+  "total_turns": 383,
+  "feature_scores_statistics": {
+    "profanity_score": {
+      "detection_count": 26,
+      "detection_rate": 6.7885117493472595,
+      "average_score": 0.7403846153846154,
+      "min_score": 0.6000000000000001,
+      "max_score": 0.85,
+      "examples_count": 5
+    },
+    "hate_speech_score": {
+      "detection_count": 22,
+      "detection_rate": 5.7441253263707575,
+      "average_score": 0.75,
+      "min_score": 0.75,
+      "max_score": 0.75,
+      "examples_count": 5
+    },
+    "special_label_confidence": {
+      "detection_count": 29,
+      "detection_rate": 7.5718015665796345,
+      "average_score": 0.746551724137931,
+      "min_score": 0.6000000000000001,
+      "max_score": 0.85,
+      "examples_count": 5
+    },
+    "profanity_factor_score": {
+      "detection_count": 26,
+      "detection_rate": 6.7885117493472595,
+      "average_score": 1.0,
+      "min_score": 1.0,
+      "max_score": 1.0,
+      "examples_count": 5
+    },
+    "threat_score": {
+      "detection_count": 2,
+      "detection_rate": 0.5221932114882507,
+      "average_score": 0.85,
+      "min_score": 0.85,
+      "max_score": 0.85,
+      "examples_count": 2
+    },
+    "unreasonable_demand_score": {
+      "detection_count": 3,
+      "detection_rate": 0.7832898172323759,
+      "average_score": 0.7999999999999999,
+      "min_score": 0.7999999999999999,
+      "max_score": 0.7999999999999999,
+      "examples_count": 3
+    },
+    "unreasonable_demand_factor_score": {
+      "detection_count": 3,
+      "detection_rate": 0.7832898172323759,
+      "average_score": 1.0,
+      "min_score": 1.0,
+      "max_score": 1.0,
+      "examples_count": 3
+    }
+  },
+  "extracted_features_statistics": {
+    "profanity_keywords": {
+      "detection_count": 26,
+      "detection_rate": 6.7885117493472595,
+      "average_items_per_detection": 0.07692307692307693,
+      "total_items": 2,
+      "examples_count": 3
+    },
+    "profanity_category": {
+      "detection_count": 26,
+      "detection_rate": 6.7885117493472595,
+      "average_items_per_detection": 1.0,
+      "total_items": 26,
+      "examples_count": 3
+    },
+    "hate_keywords": {
+      "detection_count": 22,
+      "detection_rate": 5.7441253263707575,
+      "average_items_per_detection": 1.0,
+      "total_items": 22,
+      "examples_count": 3
+    },
+    "threat_patterns": {
+      "detection_count": 2,
+      "detection_rate": 0.5221932114882507,
+      "average_items_per_detection": 1.0,
+      "total_items": 2,
+      "examples_count": 2
+    },
+    "unreasonable_keywords": {
+      "detection_count": 3,
+      "detection_rate": 0.7832898172323759,
+      "average_items_per_detection": 1.0,
+      "total_items": 3,
+      "examples_count": 3
+    }
+  },
+  "label_feature_correlation": {
+    "PROFANITY": {
+      "profanity_score": 0.7403846153846154,
+      "hate_speech_score": 0.75,
+      "special_label_confidence": 0.6637931034482759,
+      "profanity_factor_score": 1.0,
+      "threat_score": 0.85
+    },
+    "UNREASONABLE_DEMAND": {
+      "unreasonable_demand_score": 0.7999999999999999,
+      "special_label_confidence": 0.08275862068965517,
+      "unreasonable_demand_factor_score": 1.0
+    }
+  },
+  "feature_co_occurrence": {
+    "profanity_score": {
+      "hate_speech_score": 22,
+      "special_label_confidence": 26,
+      "profanity_factor_score": 26,
+      "threat_score": 2
+    },
+    "hate_speech_score": {
+      "profanity_score": 22,
+      "special_label_confidence": 22,
+      "profanity_factor_score": 22
+    },
+    "special_label_confidence": {
+      "profanity_score": 26,
+      "hate_speech_score": 22,
+      "profanity_factor_score": 26,
+      "threat_score": 2,
+      "unreasonable_demand_score": 3,
+      "unreasonable_demand_factor_score": 3
+    },
+    "profanity_factor_score": {
+      "profanity_score": 26,
+      "hate_speech_score": 22,
+      "special_label_confidence": 26,
+      "threat_score": 2
+    },
+    "threat_score": {
+      "profanity_score": 2,
+      "special_label_confidence": 2,
+      "profanity_factor_score": 2
+    },
+    "unreasonable_demand_score": {
+      "special_label_confidence": 3,
+      "unreasonable_demand_factor_score": 3
+    },
+    "unreasonable_demand_factor_score": {
+      "unreasonable_demand_score": 3,
+      "special_label_confidence": 3
+    }
+  }
+}
