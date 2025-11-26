@@ -180,12 +180,9 @@ class EnhancedIntentPredictor:
             return classification_result
         
         # Special Label이 아닌 경우: Normal Label로 분류
-        normal_baseline_results = self.baseline_rules.detect_normal_labels(text, session_context)
-        
-        if normal_baseline_results:
-            label, _ = max(normal_baseline_results, key=lambda x: x[1])
-        else:
-            label = "INQUIRY"
+        # IntentBaselineRules는 Special Label만 감지하므로, Normal Label은 기본값 사용
+        # 향후 Normal Label 분류 로직이 추가되면 여기에 구현
+        label = "INQUIRY"  # 기본 Normal Label
         
         # ClassificationResult 생성
         classification_result = ClassificationResult(

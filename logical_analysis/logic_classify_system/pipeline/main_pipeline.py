@@ -13,8 +13,15 @@ from ..preprocessing.text_splitter import TextSplitter
 from ..profanity_filter.profanity_detector import ProfanityDetector
 from ..intent_classifier.intent_predictor import IntentPredictor
 from ..intent_classifier.enhanced_intent_predictor import EnhancedIntentPredictor
-from ..feature_extractor.customer_feature_extractor import CustomerFeatureExtractor
-from ..feature_extractor.agent_feature_extractor import AgentFeatureExtractor
+
+# Feature Extractors (선택적 import)
+try:
+    from ..feature_extractor.customer_feature_extractor import CustomerFeatureExtractor
+    from ..feature_extractor.agent_feature_extractor import AgentFeatureExtractor
+except ImportError:
+    CustomerFeatureExtractor = None
+    AgentFeatureExtractor = None
+
 from ..data.data_structures import (
     PipelineResult,
     ClassificationResult,
@@ -73,9 +80,16 @@ class MainPipeline:
                 mode=mode or PipelineMode.default()
             )
         
-        # HEAD: Feature Extractors
-        self.customer_feature_extractor = CustomerFeatureExtractor()
-        self.agent_feature_extractor = AgentFeatureExtractor()
+        # HEAD: Feature Extractors (선택적)
+        if CustomerFeatureExtractor:
+            self.customer_feature_extractor = CustomerFeatureExtractor()
+        else:
+            self.customer_feature_extractor = None
+        
+        if AgentFeatureExtractor:
+            self.agent_feature_extractor = AgentFeatureExtractor()
+        else:
+            self.agent_feature_extractor = None
         
         # HEAD: Session Manager
         self.session_manager = SessionManager()

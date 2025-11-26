@@ -83,6 +83,34 @@ class RouterResult:
 
 
 @dataclass
+class CustomerAnalysisResult:
+    """고객 발화 분석 결과 (테스트용)"""
+    session_id: str
+    turn_index: int
+    text: str
+    timestamp: datetime
+    profanity_result: ProfanityResult
+    classification_result: ClassificationResult
+    feature_scores: Dict[str, float]
+    extracted_features: Dict[str, Any]
+
+
+@dataclass
+class AgentAnalysisResult:
+    """상담원 발화 분석 결과 (테스트용)"""
+    session_id: str
+    turn_index: int
+    text: str
+    timestamp: datetime
+    corresponding_customer_label: str
+    emotion_label: Optional[str] = None
+    manual_compliance_score: float = 0.0
+    compliance_details: Dict[str, Any] = None
+    feature_scores: Dict[str, float] = None
+    extracted_features: Dict[str, Any] = None
+
+
+@dataclass
 class PipelineResult:
     """파이프라인 결과"""
     session_id: str  # HEAD: 순서 유지
