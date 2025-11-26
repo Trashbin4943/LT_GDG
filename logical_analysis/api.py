@@ -13,6 +13,7 @@ from .inference import run_pipeline
 
 router = Router()
 
+<<<<<<< Updated upstream
 @router.post("/analyze")
 def run_analysis_for_session(request, payload: AnalyzeRequest):
     recording = get_object_or_404(CallRecording, session_id=payload.session_id)
@@ -25,6 +26,30 @@ def run_analysis_for_session(request, payload: AnalyzeRequest):
     
     with transaction.atomic():
         results_to_create = []
+=======
+@router.post("/analyze/customer", summary="고객 발화 분석 및 저장")
+def analyze_customer_session(
+    request, 
+    payload: SessionAnalysisRequest,
+    auto_generate_solution: bool = True,  # [NEW] 자동 솔루션 생성 여부
+    skip_existing: bool = False  # [NEW] 기존 분석 결과 스킵 여부
+):
+    """
+    [POST] 세션 STT 데이터를 입력받아 고객 발화만 분석하고 저장합니다.
+    (상담원 발화 데이터가 포함되어 있어도 무시하거나 저장하지 않습니다.)
+    
+    Args:
+        auto_generate_solution: 분석 완료 후 솔루션 자동 생성 여부 (기본: True)
+        skip_existing: 기존 분석 결과가 있으면 스킵 여부 (기본: False)
+    """
+    try:
+        result = analyze_and_save_customer_turns(
+            payload,
+            auto_generate_solution=auto_generate_solution,
+            skip_existing=skip_existing
+        )
+        return result
+>>>>>>> Stashed changes
         
         for seg in segments:
             if hasattr(seg, 'logical_analysis'):
