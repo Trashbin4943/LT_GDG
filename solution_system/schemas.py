@@ -1,22 +1,43 @@
+from typing import List, Dict, Optional
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from datetime import datetime
 
 class SolutionRequestDTO(BaseModel):
+    """
+    [Input] 솔루션 생성을 위한 요청 데이터
+    """
+    # 식별자: 이 두 정보로 SpeakerSegment를 찾습니다.
     session_id: str
     turn_index: int
-    text: str
     
-    # 1. 감정 정보
-    emotion_label: str  # "격분"
+    text: str 
     
-    # 2. 논리/분류 정보
-    logical_label: str      # "COMPLAINT", "PROFANITY"
-    logical_type: str       # "NORMAL", "SPECIAL"
+    # 분석 결과 데이터
+    emotion_label: str
+    logical_label: str
+    logical_type: str
     
-    # 3. [New] 세부 정보 활용
-    profanity_category: Optional[str] = None # "INSULT", "SEXUAL_HARASSMENT", "VIOLENCE_THREAT"
-    risk_score: float = 0.0                  # 0.0 ~ 1.0 (종합 위험도)
+    risk_score: float = 0.0
+    profanity_category: Optional[str] = None
     
-    # 4. [New] 추출된 키워드 (특정 단어 반응형 스크립트용)
-    extracted_keywords: Dict[str, list] = Field(default_factory=dict) 
-    # 예: {"unreasonable_keywords": ["공짜", "보상"]}
+    extracted_keywords: Dict[str, List[str]] = Field(default_factory=dict)
+
+
+class SolutionResponseDTO(BaseModel):
+    """
+    [Output] 생성된 솔루션 결과 반환
+    """
+    session_id: str
+    turn_index: int
+    
+    # 생성된 가이드 내용
+    strategy_title: str
+    strategy_description: str
+    tone_and_manner: str
+    
+    required_keywords: List[str]
+    prohibited_keywords: List[str]
+    solution_scripts: List[str]
+    checkpoints: List[str]
+    
+    created_at: datetime

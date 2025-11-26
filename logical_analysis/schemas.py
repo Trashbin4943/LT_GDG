@@ -39,6 +39,8 @@ class CustomerAnalysisDTO(BaseModel):
     # 분석 결과
     is_profanity: bool
     profanity_category: Optional[str] = None
+    profanity_method: Optional[str] = None
+
     label: str
     label_type: str
     classification_confidence: float
