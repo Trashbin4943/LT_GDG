@@ -86,8 +86,8 @@ class AgentAnalysisResult:
     emotion_label: Optional[str] = None  # 감정 라벨 (향후 감정 분류 시스템에서 가져옴)
     
     # 매뉴얼 준수 분석 결과 (Keyword 기반, 감정 라벨 + CAR 조합 기준)
-    manual_compliance_score: float  # 0.0-1.0
-    compliance_details: Dict[str, Any]
+    manual_compliance_score: float = 0.0  # 0.0-1.0
+    compliance_details: Dict[str, Any]= None
     # 예: {
     #   # 인사 검사
     #   "greeting_score": 1.0,              # 시작 인사 점수
@@ -133,7 +133,7 @@ class AgentAnalysisResult:
     # }
     
     # Turn 단위 특징점 점수 (해당 Turn만으로 추출)
-    feature_scores: Dict[str, float]
+    feature_scores: Dict[str, float] = None
     # 예: {
     #   "manual_compliance_score": 0.8,         # 해당 Turn의 매뉴얼 준수도
     #   "information_accuracy_score": 0.9,      # 해당 Turn의 정보 제공 정확성
@@ -143,7 +143,7 @@ class AgentAnalysisResult:
     # }
     
     # 추출된 특징점 상세 정보 (해당 Turn 내에서 발견된 것만)
-    extracted_features: Dict[str, Any]
+    extracted_features: Dict[str, Any] = None
     # 예: {
     #   # 매뉴얼 준수도 관련
     #   "used_keywords": ["안녕하세요", "죄송", "불편", "처리"],  # 사용된 키워드 (compliance_details에서 추출)
@@ -162,7 +162,7 @@ class TurnAnalysisResult:
     session_id: str
     turn_index: int
     customer_result: CustomerAnalysisResult
-    agent_result: Optional[AgentAnalysisResult]  # 상담원 발화가 있는 경우
+    #agent_result: Optional[AgentAnalysisResult]  # 상담원 발화가 있는 경우
     
     # Turn 단위 종합 Score Resource (다음 단계에서 활용)
     # 주의: 이 점수들은 "해당 Turn"에 대한 평가만 포함
