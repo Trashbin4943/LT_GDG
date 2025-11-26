@@ -52,3 +52,31 @@ def analyze_session_emotion(request, session_id: str):
         "analyzed_segments": updated_count,
         "message": f"총 {total_count}개 문장 중 {updated_count}개 문장 감정분석 완료."  
     }
+
+from ninja import Router, File
+from ninja.files import UploadedFile
+import json
+from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
+
+router = Router()
+
+@router.post("/analyze-json")
+def analyze_json(request, file: UploadedFile = File(...)):
+    analyzer = UnifiedEmotionAnalyzer()
+
+    # 업로드된 JSON 파일 읽기
+    data = json.load(file)
+
+    results = []
+    for seg in data.get("segments", []):
+        text = seg.get("text", "")
+        if text:
+            emotion = analyzer.analyze_text(text)
+            results.append({
+                "start": seg.get("start"),
+                "end": seg.get("end"),
+                "text": text,
+                "emotion": emotion
+            })
+
+    return {"status": "success", "results": results}

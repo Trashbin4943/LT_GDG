@@ -6,7 +6,7 @@ LSTM 기반 음향 감정 분석
 
 import torch
 import torch.nn as nn
-from emotion_system.emotion.label_map import label_map
+from .label_map import label_map
 
 class SimpleLSTM(nn.Module):
     def __init__(self, input_dim, num_classes):
