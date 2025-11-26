@@ -52,6 +52,7 @@ class CustomerAnalysisResult:
     #   "hate_speech_score": 0.0,         # 해당 Turn 내 혐오표현 감지
     #   "unreasonable_demand_score": 0.6, # 해당 Turn 내 무리한 요구 감지
     #   "repetition_keyword_score": 0.4,  # 해당 Turn 내 반복 표현 키워드 존재 여부
+    
     #   # Special Label 신뢰도 (요인들 합산)
     #   "special_label_confidence": 0.85, # Special Label을 붙이게 된 계기(요인들)의 합산 신뢰도
     #   # Special Label 요인별 점수 (probabilities 기반)
