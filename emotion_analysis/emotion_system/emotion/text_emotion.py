@@ -1,12 +1,11 @@
-'''
-KoBERT 기반 텍스트 감정 분석
+"""
+KoBERT 기반 텍스트 감정 분석 (Hugging Face Hub 버전)
 발화 텍스트를 입력받아 감정 라벨을 출력합니다.
-'''
+"""
 
 import torch
-from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from .label_map import label_map
-import os
 
 _tokenizer = None
 _model = None
@@ -16,42 +15,26 @@ def load_text_model():
     global _tokenizer, _model, _device
     
     if _model is None:
-        print("⏳ [AI] KoBERT 텍스트 감정 모델 로딩 중...")
+        print("⏳ [AI] Hugging Face 텍스트 감정 모델 로딩 중...")
         
-        model_name = "monologg/kobert"
-        _tokenizer = BertTokenizer.from_pretrained(model_name)
-        _model = BertForSequenceClassification.from_pretrained(
-            model_name, 
-            num_labels=len(label_map)
-        )
-
-        weights_path = "./emotion_analysis/emotion_system/emotion/kobert_emotion_model.pth"
-
-        if os.path.exists(weights_path):
-            try:
-                state_dict = torch.load(weights_path, map_location=_device)
-                _model.load_state_dict(state_dict)
-            except Exception as e:
-                print(f"모델 로드 실패: {e}")
-                raise e
-        else:
-            raise FileNotFoundError(f"모델 가중치 파일을 찾을 수 없습니다: {weights_path}")
+        # Hugging Face Hub에서 업로드한 모델 불러오기
+        model_name = "rattyrat0/kote-multilabel-model"
+        _tokenizer = AutoTokenizer.from_pretrained("monologg/kobert")  # KoBERT 토크나이저
+        _model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
         _model.to(_device)
         _model.eval()
-        print("✅ KoBERT 로딩 완료!")
-            
-        
+        print("✅ Hugging Face 모델 로딩 완료!")
 
-# def classify_text_emotion(text):
-#     tokenizer = BertTokenizer.from_pretrained("monologg/kobert")
-#     model = BertForSequenceClassification.from_pretrained("monologg/kobert", num_labels=len(label_map))
-#     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-#     outputs = model(**inputs)
-#     label = torch.argmax(outputs.logits, dim=1).item()
-#     return label_map[label]
-
-def classify_text_emotion(text):
+def classify_text_emotion(text: str, threshold: float = 0.5):
+    """
+    텍스트 감정 분석 실행
+    Args:
+        text (str): 입력 문장
+        threshold (float): 감정 라벨 선택 기준 확률 (기본 0.5)
+    Returns:
+        (predicted_labels, probs): 예측된 감정 라벨 리스트와 전체 확률 벡터
+    """
     global _tokenizer, _model, _device
 
     if _model is None or _tokenizer is None:
@@ -69,15 +52,11 @@ def classify_text_emotion(text):
         with torch.no_grad():
             outputs = _model(**inputs)
             
-        probs = torch.softmax(outputs.logits, dim=1)
-        top_prob, top_label_idx = torch.max(probs, dim=1)
-
-        label_idx = top_label_idx.item()
-        confidence = top_prob.item()
-
-        label_str = label_map.get(label_idx, "unknown")
+        # 멀티라벨 분류 → sigmoid 사용
+        probs = torch.sigmoid(outputs.logits).detach().cpu().numpy()[0]
+        predicted_labels = [label_map[i] for i, p in enumerate(probs) if p >= threshold]
         
-        return label_str, confidence
+        return predicted_labels, probs.tolist()
     
     except Exception as e:
         print(f"감정 분류 실패: {e}")

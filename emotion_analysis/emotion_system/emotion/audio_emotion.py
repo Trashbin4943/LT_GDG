@@ -6,7 +6,7 @@ LSTM 기반 음향 감정 분석
 
 import torch
 import torch.nn as nn
-from .label_map import label_map
+from emotion_system.emotion.label_map import label_map
 
 class SimpleLSTM(nn.Module):
     def __init__(self, input_dim, num_classes):
@@ -18,8 +18,9 @@ class SimpleLSTM(nn.Module):
         _, (hn, _) = self.lstm(x)
         return self.fc(hn.squeeze(0))
 
-def classify_audio_emotion(features):
+def classify_audio_emotion(features, weights_path="./audio_emotion_model.pth"):
     model = SimpleLSTM(input_dim=features.shape[2], num_classes=len(label_map))
+    model.load_state_dict(torch.load(weights_path, map_location="cpu"))
     model.eval()
     with torch.no_grad():
         x = torch.tensor(features, dtype=torch.float32)
