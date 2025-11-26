@@ -1,9 +1,10 @@
-from ninja import NinjaAPI
+from ninja import NinjaAPI, Router
 from .schemas import SessionAnalysisRequest
 from .services import analyze_and_save_customer_turns
 
 # 앱별로 네임스페이스를 분리하여 URL 충돌 방지
 api = NinjaAPI(urls_namespace='logical_analysis')
+router = Router()
 
 @api.post("/analyze/customer", summary="고객 발화 분석 및 저장")
 def analyze_customer_session(request, payload: SessionAnalysisRequest):
