@@ -1,11 +1,11 @@
-from ninja import NinjaAPI
+from ninja import NinjaAPI, Router
+from django.http import JsonResponse
 from .schemas import SessionAnalysisRequest
 from .services import analyze_and_save_customer_turns
 
-# 앱별로 네임스페이스를 분리하여 URL 충돌 방지
-api = NinjaAPI(urls_namespace='logical_analysis')
+router = Router()
 
-@api.post("/analyze/customer", summary="고객 발화 분석 및 저장")
+@router.post("/analyze/customer", summary="고객 발화 분석 및 저장")
 def analyze_customer_session(request, payload: SessionAnalysisRequest):
     """
     [POST] 세션 STT 데이터를 입력받아 고객 발화만 분석하고 저장합니다.
@@ -17,8 +17,7 @@ def analyze_customer_session(request, payload: SessionAnalysisRequest):
         
     except Exception as e:
         # 에러 발생 시 500 응답과 상세 내용 반환
-        return api.create_response(
-            request,
+        return JsonResponse(
             {"status": "error", "message": str(e)},
             status=500
         )

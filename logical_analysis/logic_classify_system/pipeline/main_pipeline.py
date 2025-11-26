@@ -124,7 +124,7 @@ class MainPipeline:
             session_id=session_id,
             turn_index=turn.turn_index,
             customer_result=customer_result,
-            agent_result=agent_result,
+            # agent_result=agent_result,
             turn_scores=turn_scores
         )
     

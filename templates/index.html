@@ -206,7 +206,7 @@
 
             if (item.processed) {
                 statusBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2">분석 완료</span>`;
-                actionBtn = `<a href="/audio/detail/${item.session_id}/" class="btn btn-sm btn-outline-primary rounded-pill px-3">결과 보정</a>`;
+                actionBtn = `<a href="/audio/correction/${item.session_id}/" class="btn btn-sm btn-outline-primary rounded-pill px-3">결과 보정</a>`;
             } else {
                 statusBadge = `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2">
                                 <span class="spinner-grow spinner-grow-sm me-1" style="width: 0.5rem; height: 0.5rem;" role="status"></span>분석 중
@@ -238,6 +238,23 @@
             `;
         });
         tbody.innerHTML = html;
+    }
+
+    async function handleUpload(file) {
+        // ... formData 생성 등 ...
+        const response = await fetch('/api/audio/upload', {
+            // 메인 urls.py의 /audio 라우터
+            method: 'POST',
+            // ...
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            // [이동] audio_process/urls.py에 정의된 수정 페이지로 이동
+            // data.session_id (UUID)를 사용
+            window.location.href = `/audio/correction/${data.session_id}/`;
+        }
     }
 
     // 페이지 로드 시 실행

@@ -11,7 +11,6 @@ router = Router()
 def analyze_session_emotion(request, session_id: str):
     recording = get_object_or_404(CallRecording, session_id=session_id, uploader=request.user)
     client_segments = recording.segments.filter(
-        recording=recording,
         speaker_label='client',
         is_counselor=False)
     
