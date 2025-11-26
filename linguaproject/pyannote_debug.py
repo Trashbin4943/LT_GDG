@@ -3,10 +3,7 @@ from pyannote.audio import Pipeline
 from dotenv import load_dotenv
 from huggingface_hub import login
 import soundfile as sf 
-try:
-    import torch
-except ImportError:
-    torch = None
+import torch
 import numpy as np
 
 # --- 1. 환경 설정 ---
