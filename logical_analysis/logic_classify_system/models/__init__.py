@@ -20,4 +20,3 @@ __all__ = [
     'MODELS_DIR',
     'AIHUB_MODEL_DIR'
 ]
-
