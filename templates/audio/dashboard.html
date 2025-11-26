@@ -1,0 +1,311 @@
+{% extends 'base.html' %} {% block title %}분석 대시보드 - LinguaTech{% endblock %} {% block content %}
+<style>
+    .chat-bubble {
+        max-width: 75%;
+        border-radius: 15px;
+        padding: 10px 15px;
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+    .chat-bubble:hover {
+        transform: scale(1.01);
+    }
+
+    .chat-left {
+        background-color: #f1f3f5;
+        color: #333;
+        border-bottom-left-radius: 0;
+    }
+    .chat-right {
+        background-color: #fff3cd;
+        color: #333;
+        border-bottom-right-radius: 0;
+        align-self: flex-end;
+    }
+
+    .chat-meta {
+        font-size: 0.75rem;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
+
+    .badge-emotion {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .badge-logic {
+        background-color: #dc3545;
+        color: #fff;
+    }
+</style>
+
+<div class="container-fluid vh-100 d-flex flex-column">
+    <div class="row bg-white border-bottom py-3 px-4 align-items-center" style="height: 60px">
+        <div class="col">
+            <h5 class="mb-0 fw-bold" id="headerTitle">분석 결과 로딩 중...</h5>
+        </div>
+        <div class="col-auto">
+            <a href="/audio/list" class="btn btn-outline-secondary btn-sm">목록으로</a>
+        </div>
+    </div>
+
+    <div class="row flex-grow-1 overflow-hidden">
+        <div class="col-md-8 col-lg-9 bg-light h-100 overflow-auto p-4" id="chatContainer">
+            <div id="chatMessages" class="d-flex flex-column gap-3 pb-5">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 col-lg-3 bg-white border-start h-100 overflow-auto p-0 shadow-sm" style="z-index: 100">
+            <div
+                id="emptyState"
+                class="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-4 text-center"
+            >
+                <i class="bi bi-chat-dots fs-1 mb-3"></i>
+                <h5>대화를 선택하세요</h5>
+                <p class="small">고객의 말풍선을 클릭하면<br />상세 분석 결과와 솔루션을 볼 수 있습니다.</p>
+            </div>
+
+            <div id="detailContent" class="d-none">
+                <div class="p-3 bg-light border-bottom">
+                    <h6 class="fw-bold mb-1">🔍 발화 상세 분석</h6>
+                    <small class="text-muted" id="detailTime">00:00</small>
+                </div>
+
+                <div class="p-3">
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted small">감정 / 의도</h6>
+                            <div class="mb-3">
+                                <span class="badge bg-secondary fs-6 me-1" id="detailEmotion">-</span>
+                                <span class="badge bg-dark fs-6" id="detailLogical">-</span>
+                            </div>
+
+                            <h6 class="card-subtitle mb-2 text-muted small">리스크 점수</h6>
+                            <div class="progress mb-2" style="height: 20px">
+                                <div
+                                    id="riskProgressBar"
+                                    class="progress-bar bg-danger"
+                                    role="progressbar"
+                                    style="width: 0%"
+                                >
+                                    0%
+                                </div>
+                            </div>
+
+                            <ul class="list-group list-group-flush small mt-3">
+                                <li class="list-group-item d-flex justify-content-between px-0">
+                                    <span>욕설 감지</span>
+                                    <span class="fw-bold" id="detailProfanity">-</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between px-0">
+                                    <span>위협/폭언</span>
+                                    <span class="fw-bold" id="detailThreat">-</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mb-3">
+                        <button class="btn btn-primary" id="btnGenerate" onclick="generateSolution()">
+                            🪄 AI 솔루션(매뉴얼) 생성
+                        </button>
+                    </div>
+
+                    <div id="solutionCard" class="card border-primary bg-primary-subtle bg-opacity-10 d-none">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-primary mb-2">💡 AI 가이드</h6>
+                            <h5 class="fw-bold mb-3" id="solTitle"></h5>
+
+                            <div class="mb-3">
+                                <span class="badge bg-white text-primary border border-primary mb-1"
+                                    >Tone & Manner</span
+                                >
+                                <p class="small mb-0" id="solTone"></p>
+                            </div>
+
+                            <div class="mb-0">
+                                <span class="badge bg-white text-success border border-success mb-1"
+                                    >추천 스크립트</span
+                                >
+                                <div class="p-2 bg-white rounded border small text-dark" id="solScript"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SESSION_ID = '{{ session_id }}';
+    let currentSegment = null; // 현재 선택된 세그먼트 데이터 저장
+    let allSegments = []; // 전체 데이터 저장
+</script>
+{% endblock %} {% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', loadChatData);
+
+    // 1. 데이터 로드 (audio_process API가 logical 정보까지 포함해서 준다고 가정)
+    async function loadChatData() {
+        const token = localStorage.getItem('access_token');
+        try {
+            const res = await fetch(`/api/audio/${SESSION_ID}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('데이터 로드 실패');
+
+            const data = await res.json();
+            document.getElementById('headerTitle').innerText = data.file_name;
+            allSegments = data.segments;
+
+            renderChat(data.segments);
+        } catch (e) {
+            console.error(e);
+            document.getElementById(
+                'chatMessages'
+            ).innerHTML = `<p class="text-center text-danger">데이터를 불러오지 못했습니다.</p>`;
+        }
+    }
+
+    // 2. 채팅 UI 렌더링
+    function renderChat(segments) {
+        const container = document.getElementById('chatMessages');
+        container.innerHTML = '';
+
+        segments.forEach((seg) => {
+            const isCustomer = seg.speaker_label !== 'counselor';
+            const alignClass = isCustomer ? 'align-self-end' : 'align-self-start';
+            const bubbleClass = isCustomer ? 'chat-right' : 'chat-left';
+            const speakerName = isCustomer ? '고객' : '상담사';
+
+            // 배지 (고객인 경우에만 표시)
+            let badgesHtml = '';
+            if (isCustomer) {
+                if (seg.emotion_label) {
+                    badgesHtml += `<span class="badge rounded-pill badge-emotion me-1">${seg.emotion_label}</span>`;
+                }
+                if (seg.logical_label && seg.logical_type === 'SPECIAL') {
+                    badgesHtml += `<span class="badge rounded-pill badge-logic">${seg.logical_label}</span>`;
+                }
+            }
+
+            const html = `
+                <div class="d-flex flex-column ${alignClass}" style="max-width: 80%;">
+                    <small class="ms-1 text-muted mb-1">${speakerName}</small>
+                    <div class="chat-bubble ${bubbleClass} shadow-sm" onclick="selectSegment(${seg.id})">
+                        <div class="mb-1">${badgesHtml}</div>
+                        <div>${seg.text}</div>
+                        <div class="chat-meta text-end">${formatTime(seg.start_time)}</div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += html;
+        });
+    }
+
+    // 3. 말풍선 클릭 시 상세 보기
+    window.selectSegment = function (segId) {
+        const seg = allSegments.find((s) => s.id === segId);
+        if (!seg) return;
+        currentSegment = seg;
+
+        // UI 전환
+        document.getElementById('emptyState').classList.add('d-none');
+        document.getElementById('detailContent').classList.remove('d-none');
+
+        // 기본 정보 채우기
+        document.getElementById('detailTime').innerText = `${formatTime(seg.start_time)} ~ ${formatTime(seg.end_time)}`;
+        document.getElementById('detailEmotion').innerText = seg.emotion_label || '분석 안됨';
+        document.getElementById('detailLogical').innerText = seg.logical_label || 'Normal';
+
+        // 리스크 점수 (logical_analysis 결과가 있으면 표시)
+        const risk = seg.risk_score ? (seg.risk_score * 100).toFixed(0) : 0;
+        const bar = document.getElementById('riskProgressBar');
+        bar.style.width = `${risk}%`;
+        bar.innerText = `${risk}%`;
+        bar.className = `progress-bar ${risk > 70 ? 'bg-danger' : risk > 30 ? 'bg-warning' : 'bg-success'}`;
+
+        document.getElementById('detailProfanity').innerText = seg.is_profanity ? '감지됨' : '미감지';
+        document.getElementById('detailThreat').innerText = seg.profanity_category || '-';
+
+        // 솔루션 영역 초기화
+        document.getElementById('solutionCard').classList.add('d-none');
+        const btn = document.getElementById('btnGenerate');
+
+        // 상담사는 솔루션 생성 불필요
+        if (seg.speaker_label === 'counselor') {
+            btn.disabled = true;
+            btn.innerText = '상담사 발화는 솔루션 대상 아님';
+        } else {
+            btn.disabled = false;
+            btn.innerText = '🪄 AI 솔루션(매뉴얼) 생성';
+        }
+    };
+
+    // 4. 솔루션 생성 요청
+    window.generateSolution = async function () {
+        if (!currentSegment) return;
+
+        const btn = document.getElementById('btnGenerate');
+        btn.disabled = true;
+        btn.innerText = '생성 중...';
+
+        try {
+            const token = localStorage.getItem('access_token');
+            // SolutionRequestDTO 구조에 맞춰 데이터 전송
+            const payload = {
+                segment_id: currentSegment.id, // 필수: PK
+                session_id: SESSION_ID,
+                turn_index: 0, // 모델에 없으면 임의값, 있으면 실제값
+                text: currentSegment.text,
+                emotion_label: currentSegment.emotion_label || '중립',
+                logical_label: currentSegment.logical_label || 'INQUIRY',
+                logical_type: currentSegment.logical_type || 'NORMAL',
+                risk_score: currentSegment.risk_score || 0.0,
+                profanity_category: currentSegment.profanity_category,
+                // 키워드는 필요 시 파싱해서 전송 (여기선 빈 값 예시)
+                extracted_keywords: {},
+            };
+
+            const res = await fetch(`/api/solution/generate`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) throw new Error('솔루션 생성 실패');
+            const solData = await res.json();
+
+            // 결과 표시
+            document.getElementById('solTitle').innerText = solData.strategy_title;
+            document.getElementById('solTone').innerText = solData.tone_and_manner;
+
+            const scriptHtml = solData.solution_scripts.map((s) => `<p class="mb-1">Wait " ${s} "</p>`).join('');
+            document.getElementById('solScript').innerHTML = scriptHtml;
+
+            document.getElementById('solutionCard').classList.remove('d-none');
+            btn.innerText = '생성 완료';
+        } catch (e) {
+            console.error(e);
+            alert('솔루션을 생성하지 못했습니다.');
+            btn.disabled = false;
+            btn.innerText = '🪄 AI 솔루션(매뉴얼) 생성';
+        }
+    };
+
+    function formatTime(seconds) {
+        if (!seconds) return '00:00';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+</script>
+{% endblock %}

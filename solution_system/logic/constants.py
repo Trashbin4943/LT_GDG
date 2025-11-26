@@ -2,7 +2,7 @@ from typing import Dict, List
 
 # 1. emtion_analysis.emotion_system의 label_map을 import합니다.
 try:
-    from emotion_analysis.emotion_system.emotion import label_map as ORIGIN_LABEL_MAP
+    from emotion_analysis.emotion_system.emotion.label_map import label_map as ORIGIN_LABEL_MAP
     EMOTION_LABELS = list(ORIGIN_LABEL_MAP.values())
 except ImportError:
     EMOTION_LABELS=[]
