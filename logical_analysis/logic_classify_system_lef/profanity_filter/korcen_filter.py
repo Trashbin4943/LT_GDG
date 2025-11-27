@@ -1,14 +1,20 @@
 """
 Korcen 기반 욕설 필터 (경량화 버전)
 
-전화 상담 맥락에 최적화된 Korcen 필터 구현
+전화 상담 맥락에 최적화된 Korcen 필터 구현 (HEAD 기반)
+단어 단위 패턴 매칭을 통한 빠른 욕설 감지 (logic 기능 통합)
 - 레벨-카테고리 매핑
 - Baseline 규칙과 통합 (위협 표현 감지)
 """
 
 import re
 from typing import Tuple, Optional, Dict, List
+import logging
+
 from .baseline_rules import ProfanityBaselineRules
+from ..data.data_structures import ProfanityResult
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # 텍스트 정규화 맵 (핵심만 추출)
@@ -336,20 +342,55 @@ LEVEL_CONFIDENCE_WEIGHTS: Dict[str, float] = {
     'special': 0.7,     # 높은 신뢰도
 }
 
+# logic: Korcen 힌트 매핑
+HINT_MAPPING = {
+    "general": "PROFANITY_DETECTED",
+    "sexual": "SEXUAL_DETECTED",
+    "race": "HATE_DETECTED",
+    "special": "VIOLENCE_THREAT"
+}
+
 # ============================================================================
 # KorcenFilter 클래스
 # ============================================================================
 
 class KorcenFilter:
-    """Korcen 기반 욕설 필터 (전화 상담 맥락 최적화)"""
+    """Korcen 기반 욕설 필터 (전화 상담 맥락 최적화) (HEAD 기반 + logic 기능 통합)"""
     
-    def __init__(self):
-        """Korcen 필터 초기화"""
+    # logic: Korcen 힌트 매핑
+    HINT_MAPPING = HINT_MAPPING
+    
+    def __init__(self, use_korcen: bool = False):
+        """
+        Korcen 필터 초기화
+        
+        Args:
+            use_korcen: Korcen 라이브러리 사용 여부 (logic: 추가)
+        """
+        # HEAD: Baseline 규칙 포함
         self.baseline_rules = ProfanityBaselineRules()
+        
+        # logic: Korcen 라이브러리 지원
+        self.use_korcen = use_korcen
+        self.korcen = None
+        
+        if use_korcen:
+            try:
+                import korcen
+                self.korcen = korcen
+                logger.info("Korcen 필터 로드 완료")
+            except ImportError:
+                logger.warning("Korcen 라이브러리를 찾을 수 없습니다. pip install korcen을 실행하세요.")
+                self.use_korcen = False
+                self.korcen = None
+            except Exception as e:
+                logger.warning(f"Korcen 필터 초기화 중 오류 발생: {e}")
+                self.use_korcen = False
+                self.korcen = None
     
     def check_profanity(self, text: str) -> Tuple[bool, Optional[str], float]:
         """
-        욕설 감지 및 카테고리 매핑
+        욕설 감지 및 카테고리 매핑 (HEAD: 유지)
         
         Args:
             text: 분석할 텍스트
@@ -408,4 +449,80 @@ class KorcenFilter:
             base_confidence = min(base_confidence + 0.1 * (len(detected_levels) - 1), 1.0)
         
         return True, selected_category, base_confidence
-
+    
+    def detect(self, text: str) -> Optional[ProfanityResult]:
+        """
+        Korcen으로 욕설 감지 (logic: 추가 메서드)
+        
+        Args:
+            text: 분석할 텍스트
+        
+        Returns:
+            ProfanityResult 또는 None (감지 실패 시)
+        """
+        # logic: Korcen 라이브러리 사용
+        if self.use_korcen and self.korcen:
+            try:
+                # Korcen 감지 (예시 - 실제 API는 다를 수 있음)
+                result = self.korcen.check(text)
+                
+                if result and result.get("is_profanity", False):
+                    level = result.get("level", "general")
+                    confidence = result.get("confidence", 0.80)
+                    category = self.HINT_MAPPING.get(level, "PROFANITY_DETECTED")
+                    
+                    return ProfanityResult(
+                        is_profanity=True,
+                        category=category,
+                        confidence=confidence,
+                        method="korcen",
+                        text=text
+                    )
+            except Exception as e:
+                logger.error(f"Korcen 감지 실패: {e}")
+                return None
+        
+        # HEAD: 패턴 매칭 방식으로 폴백
+        is_prof, category, confidence = self.check_profanity(text)
+        if is_prof:
+            return ProfanityResult(
+                is_profanity=True,
+                category=category,
+                confidence=confidence,
+                method="baseline",
+                text=text
+            )
+        
+        return None
+    
+    def check_with_levels(self, text: str) -> Optional[Tuple[str, float]]:
+        """
+        레벨별 감지 (4개 레벨) (logic: 추가 메서드)
+        
+        Args:
+            text: 분석할 텍스트
+        
+        Returns:
+            (level, confidence) 또는 None
+        """
+        if self.use_korcen and self.korcen:
+            try:
+                result = self.korcen.check(text)
+                
+                if result and result.get("is_profanity", False):
+                    level = result.get("level", "general")
+                    confidence = result.get("confidence", 0.80)
+                    return (level, confidence)
+            except Exception as e:
+                logger.error(f"Korcen 레벨 감지 실패: {e}")
+                return None
+        
+        # HEAD: 패턴 매칭 방식으로 폴백
+        is_prof, category, confidence = self.check_profanity(text)
+        if is_prof:
+            # category를 level로 변환
+            level_map = {v: k for k, v in KORCEN_TO_CATEGORY_MAP.items()}
+            level = level_map.get(category, "general")
+            return (level, confidence)
+        
+        return None

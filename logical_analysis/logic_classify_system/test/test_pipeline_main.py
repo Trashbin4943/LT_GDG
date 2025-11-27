@@ -35,6 +35,7 @@ from logical_analysis.logic_classify_system.test.test_statistics import (
     export_metrics_to_json,
     export_metrics_to_markdown
 )
+from logical_analysis.logic_classify_system.test.test_helpers import create_test_pipeline
 
 
 def run_normal_label_test(
@@ -290,7 +291,7 @@ def run_feature_extraction_test(
             stt_files = random.sample(stt_files, sample_size)
         
         # MainPipeline 초기화
-        pipeline = MainPipeline()
+        pipeline = create_test_pipeline(use_models=True)
         
         # 결과 저장
         all_results = []

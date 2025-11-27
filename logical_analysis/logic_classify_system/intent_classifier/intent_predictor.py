@@ -1,183 +1,184 @@
 """
 발화 의도 예측 통합 인터페이스
 
-Turn 단위 분석에 맞게 수정
+Baseline 규칙 + KoSentenceBERT를 통합하여 발화 의도를 분류 (HEAD 기반)
+Special Label 및 Normal Label 분류, 파이프라인 모드에 따른 분기 처리 (logic 기능 통합)
 """
 
 from typing import Optional, List
 from datetime import datetime
-import warnings
+import logging
 
 from .baseline_rules import IntentBaselineRules
-from .sentence_classifier import SentenceClassifier
 from ..data.data_structures import ClassificationResult
-from ..config.labels import NORMAL_LABELS, SPECIAL_LABELS
+from ..config.labels import (
+    NORMAL_LABELS,
+    SPECIAL_LABELS,
+    PipelineMode,
+    LabelType,
+    SpecialLabel,
+    NormalLabel
+)
+
+# logic: 선택적 import
+try:
+    from ..filtering.special_label_filter import SpecialLabelFilter
+    from ..profanity_filter.profanity_detector import ProfanityDetector
+except ImportError:
+    SpecialLabelFilter = None
+    ProfanityDetector = None
+
+logger = logging.getLogger(__name__)
 
 
 class IntentPredictor:
-    """발화 의도 예측기"""
+    """발화 의도 예측기 (HEAD 기반 + logic 기능 통합)"""
     
-    def __init__(self, use_model: bool = True, model_path: Optional[str] = None):
+    # Korcen 힌트 → Special Label 매핑 (logic: 추가)
+    KORCEN_HINT_MAPPING = {
+        "PROFANITY_DETECTED": SpecialLabel.PROFANITY.value,
+        "SEXUAL_DETECTED": SpecialLabel.SEXUAL_HARASSMENT.value,
+        "HATE_DETECTED": SpecialLabel.HATE_SPEECH.value,
+        "VIOLENCE_THREAT": SpecialLabel.VIOLENCE_THREAT.value
+    }
+    
+    def __init__(
+        self,
+        mode: Optional[PipelineMode] = None,
+        special_label_filter: Optional[SpecialLabelFilter] = None,
+        profanity_detector: Optional[ProfanityDetector] = None
+    ):
         """
         발화 의도 예측기 초기화
         
         Args:
-            use_model: 모델 분류기 사용 여부 (True이면 모델 사용, False이면 baseline 규칙만 사용)
-            model_path: 모델 경로 (None이면 기본 경로 사용)
+            mode: 파이프라인 모드 (logic: 추가)
+            special_label_filter: SpecialLabelFilter 인스턴스 (logic: 추가)
+            profanity_detector: ProfanityDetector 인스턴스 (logic: 추가)
         """
-        # 모델 분류기 로드
-        if use_model:
-            try:
-                self.classifier = SentenceClassifier(model_path=model_path)
-                if not self.classifier.is_available():
-                    warnings.warn("모델 분류기를 사용할 수 없습니다. Baseline 규칙만 사용합니다.")
-                    self.classifier = None
-                else:
-                    print("모델 분류기 로드 완료")
-            except Exception as e:
-                warnings.warn(f"모델 분류기 로드 실패: {e}. Baseline 규칙만 사용합니다.")
-                self.classifier = None
-        else:
-            self.classifier = None
+        # HEAD: 기본 구조 유지
+        # KoSentenceBERT 분류기 (향후 구현)
+        # from intent_classifier.kosentbert_classifier import KoSentenceBERTClassifier
+        # self.classifier = KoSentenceBERTClassifier()
+        self.classifier = None
         
         # Baseline 규칙은 모듈 내부에 포함
         self.baseline_rules = IntentBaselineRules()
+        
+        # logic: 추가 기능
+        self.mode = mode or PipelineMode.default()
+        self.special_label_filter = special_label_filter
+        self.profanity_detector = profanity_detector
     
-    def predict(self, text: str, profanity_detected: bool, profanity_confidence: float = 0.0,
-                session_context: Optional[List[str]] = None) -> ClassificationResult:
+    def predict(
+        self,
+        text: str,
+        profanity_detected: bool = False,
+        session_context: Optional[List[str]] = None,
+        profanity_category: Optional[str] = None,
+        profanity_confidence: float = 0.0
+    ) -> ClassificationResult:
         """
-        발화 의도 예측 (통합)
-        
-        접근 방식:
-        - Special Label: korcen + baseline 규칙 요인들을 합산하여 신뢰도 계산
-        - Normal Label: Special Label이 아닌 경우 기본값으로 분류 (confidence는 낮게)
-        
-        주의: Turn 단위 분석이므로 session_context는 최소 사용
+        발화 의도 예측 (통합) (HEAD 시그니처 유지 + logic 호환성)
         
         Args:
-            text: 분석할 문장 (해당 Turn만)
+            text: 분석할 문장
             profanity_detected: 1차 필터링에서 욕설 감지 여부
-            profanity_confidence: 욕설 감지 신뢰도 (0.0-1.0)
-            session_context: 세션 맥락 (선택사항, 최소 사용)
+            session_context: 세션 맥락
+            profanity_category: Korcen 힌트 (logic: 추가)
+            profanity_confidence: 욕설 감지 신뢰도 (logic: 추가)
         
         Returns:
             ClassificationResult (label, label_type, confidence, ...)
         """
-        # Special Label 감지 요인 수집 (korcen + baseline 규칙 + 모델)
-        special_factors = []  # [(label, confidence), ...]
+        # logic: PipelineMode 기반 분기 처리
+        if self.mode != PipelineMode.default() and self.special_label_filter:
+            if self.mode == PipelineMode.FAST_CLASSIFY_THEN_CONDITIONAL_DETAIL:
+                return self._predict_fast_classify_then_conditional_detail(
+                    text, profanity_detected, session_context,
+                    profanity_category, profanity_confidence
+                )
+            elif self.mode == PipelineMode.CLASSIFY_BOTH_ALWAYS:
+                return self._predict_classify_both_always(
+                    text, profanity_detected, session_context,
+                    profanity_category, profanity_confidence
+                )
+            elif self.mode == PipelineMode.DETAIL_FIRST_THEN_VERIFY:
+                return self._predict_detail_first_then_verify(
+                    text, profanity_detected, session_context,
+                    profanity_category, profanity_confidence
+                )
         
-        # 1. 욕설 감지 (korcen/baseline)
+        # HEAD: 기본 로직 유지
+        # 욕설 감지 시 즉시 특수 Label 반환
         if profanity_detected:
-            special_factors.append(("PROFANITY", profanity_confidence))
-        
-        # 2. Baseline 규칙으로 Special Label 감지 (Turn 단위)
-        baseline_results = self.baseline_rules.detect_special_labels(text, session_context)
-        special_factors.extend(baseline_results)
-        
-        # 3. 모델로 Special Label 예측 (모델이 사용 가능한 경우)
-        if self.classifier and self.classifier.is_available():
-            try:
-                model_result = self.classifier.predict(text, return_probabilities=True)
-                # 모델이 Special Label로 예측한 경우 추가
-                if model_result.get('label_type') == 'SPECIAL':
-                    model_label = model_result.get('label')
-                    model_confidence = model_result.get('confidence', 0.0)
-                    # 기존에 같은 label이 없거나, 모델 신뢰도가 더 높은 경우 추가/업데이트
-                    existing_label_idx = None
-                    for i, (label, conf) in enumerate(special_factors):
-                        if label == model_label:
-                            existing_label_idx = i
-                            break
-                    
-                    if existing_label_idx is not None:
-                        # 기존 신뢰도와 모델 신뢰도 중 높은 값 사용
-                        _, existing_conf = special_factors[existing_label_idx]
-                        special_factors[existing_label_idx] = (model_label, max(existing_conf, model_confidence))
-                    else:
-                        # 새로운 Special Label 추가
-                        special_factors.append((model_label, model_confidence))
-            except Exception as e:
-                # 모델 예측 실패 시 무시하고 계속 진행
-                warnings.warn(f"모델 예측 중 오류 발생: {e}")
-        
-        # Special Label 요인들이 있는 경우
-        if special_factors:
-            # 가장 높은 신뢰도의 Label 선택
-            primary_label, primary_confidence = max(special_factors, key=lambda x: x[1])
+            # logic: Korcen 힌트 확인
+            if profanity_category and profanity_category in self.KORCEN_HINT_MAPPING:
+                label = self.KORCEN_HINT_MAPPING[profanity_category]
+                return ClassificationResult(
+                    label=label,
+                    label_type="SPECIAL",
+                    confidence=profanity_confidence if profanity_confidence > 0 else 1.0,
+                    text=text,
+                    timestamp=datetime.now()
+                )
             
-            # 모든 요인들을 합산하여 special_label_confidence 계산
-            # 각 요인의 신뢰도를 가중 합산 (최대값 기준 정규화)
-            total_confidence = sum(conf for _, conf in special_factors)
-            # 요인 개수에 따라 가중치 조정 (요인이 많을수록 신뢰도 상승)
-            factor_count = len(special_factors)
-            special_label_confidence = min(
-                max(primary_confidence, total_confidence / factor_count) * (1.0 + (factor_count - 1) * 0.1),
-                1.0
-            )
-            
-            # 모든 Special Label 요인을 probabilities에 저장
-            probabilities = {}
-            total_factor_confidence = sum(conf for _, conf in special_factors)
-            if total_factor_confidence > 0:
-                for label, conf in special_factors:
-                    probabilities[label] = conf / total_factor_confidence
-            
+            # HEAD: 기본 PROFANITY 반환
             return ClassificationResult(
-                label=primary_label,
+                label="PROFANITY",
                 label_type="SPECIAL",
-                confidence=special_label_confidence,
+                confidence=1.0,
                 text=text,
-                probabilities=probabilities,
                 timestamp=datetime.now()
             )
         
-        # Special Label이 아닌 경우: Normal Label로 분류
-        # 1. 모델로 Normal Label 예측 시도 (모델이 사용 가능한 경우)
-        if self.classifier and self.classifier.is_available():
-            try:
-                model_result = self.classifier.predict(text, return_probabilities=True)
-                # 모델이 Normal Label로 예측한 경우
-                if model_result.get('label_type') == 'NORMAL':
-                    label = model_result.get('label')
-                    confidence = model_result.get('confidence', 0.3)
-                    probabilities = model_result.get('probabilities', {label: 1.0})
-                    
-                    return ClassificationResult(
-                        label=label,
-                        label_type="NORMAL",
-                        confidence=confidence,
-                        text=text,
-                        probabilities=probabilities,
-                        timestamp=datetime.now()
-                    )
-            except Exception as e:
-                # 모델 예측 실패 시 baseline 규칙 사용
-                warnings.warn(f"모델 예측 중 오류 발생: {e}. Baseline 규칙 사용")
+        # Baseline 규칙으로 특수 Label 사전 감지
+        baseline_results = self.baseline_rules.detect_special_labels(text, session_context)
+        if baseline_results:
+            # 가장 높은 신뢰도의 Label 선택
+            if isinstance(baseline_results, list):
+                # HEAD 방식: List[Tuple]
+                label, confidence = max(baseline_results, key=lambda x: x[1])
+            else:
+                # logic 방식: ClassificationResult
+                label = baseline_results.label
+                confidence = baseline_results.confidence
+            
+            return ClassificationResult(
+                label=label,
+                label_type="SPECIAL",
+                confidence=confidence,
+                text=text,
+                timestamp=datetime.now()
+            )
         
-        # 2. Baseline 규칙으로 Normal Label 분류
-        normal_baseline_results = self.baseline_rules.detect_normal_labels(text, session_context)
+        # KoSentenceBERT로 Normal Label 분류 (향후 구현)
+        if self.classifier:
+            intent_result = self.classifier.predict(text, session_context)
+            label_type = self._determine_label_type(intent_result.label)
+            
+            return ClassificationResult(
+                label=intent_result.label,
+                label_type=label_type,
+                confidence=intent_result.confidence,
+                text=text,
+                probabilities=intent_result.probabilities,
+                timestamp=datetime.now()
+            )
         
-        if normal_baseline_results:
-            # 가장 높은 신뢰도의 Normal Label 선택
-            label, _ = max(normal_baseline_results, key=lambda x: x[1])
-        else:
-            # 기본값: INQUIRY
-            label = "INQUIRY"
-        
-        # Normal Label은 confidence를 낮게 설정 (정량화하기 어려움)
-        # Special Label이 아니라는 것만으로는 정상 발화의 근거를 확신할 수 없음
+        # 모델이 없을 경우 기본값 (임시)
+        # 실제 구현 시에는 모델이 필수
         return ClassificationResult(
-            label=label,
+            label="INQUIRY",  # 기본값
             label_type="NORMAL",
-            confidence=0.3,  # 낮은 신뢰도 (Special Label이 아닐 뿐)
+            confidence=0.5,
             text=text,
-            probabilities={label: 1.0},
             timestamp=datetime.now()
         )
     
     def _determine_label_type(self, label: str) -> str:
         """
-        Label 타입 결정 (Normal or Special)
+        Label 타입 결정 (Normal or Special) (HEAD: 유지)
         
         Args:
             label: 분류된 Label
@@ -191,5 +192,160 @@ class IntentPredictor:
             return "SPECIAL"
         else:
             return "UNKNOWN"
-
-
+    
+    # logic: PipelineMode 기반 메서드들
+    def _predict_fast_classify_then_conditional_detail(
+        self,
+        text: str,
+        profanity_detected: bool,
+        session_context: Optional[List[str]],
+        profanity_category: Optional[str],
+        profanity_confidence: float
+    ) -> ClassificationResult:
+        """모드 1: FAST_CLASSIFY_THEN_CONDITIONAL_DETAIL (logic: 추가)"""
+        # Korcen 힌트 확인
+        if profanity_detected and profanity_category:
+            label = self.KORCEN_HINT_MAPPING.get(profanity_category)
+            
+            if label:
+                # 조건 확인: 모델 사용 필요?
+                use_model = (
+                    profanity_confidence < 0.7 or
+                    profanity_category == "PROFANITY_DETECTED"
+                )
+                
+                if use_model and self.special_label_filter:
+                    detection = self.special_label_filter.detect(text, session_context)
+                    if detection:
+                        return ClassificationResult(
+                            label=detection.label,
+                            label_type=LabelType.SPECIAL.value,
+                            confidence=detection.confidence,
+                            text=text,
+                            timestamp=datetime.now()
+                        )
+                
+                return ClassificationResult(
+                    label=label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=profanity_confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # SpecialLabelFilter.detect() (모델/Baseline)
+        if self.special_label_filter:
+            detection = self.special_label_filter.detect(text, session_context)
+            if detection:
+                return ClassificationResult(
+                    label=detection.label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=detection.confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # 미감지 → Normal Label 분류
+        return self._classify_normal_label(text)
+    
+    def _predict_classify_both_always(
+        self,
+        text: str,
+        profanity_detected: bool,
+        session_context: Optional[List[str]],
+        profanity_category: Optional[str],
+        profanity_confidence: float
+    ) -> ClassificationResult:
+        """모드 2: CLASSIFY_BOTH_ALWAYS (logic: 추가)"""
+        # SpecialLabelFilter.detect() (항상 실행)
+        if self.special_label_filter:
+            detection = self.special_label_filter.detect(text, session_context)
+            if detection:
+                return ClassificationResult(
+                    label=detection.label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=detection.confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # 미감지
+        if profanity_detected and profanity_category:
+            label = self.KORCEN_HINT_MAPPING.get(profanity_category)
+            if label:
+                return ClassificationResult(
+                    label=label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=profanity_confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # Normal Label 분류
+        return self._classify_normal_label(text)
+    
+    def _predict_detail_first_then_verify(
+        self,
+        text: str,
+        profanity_detected: bool,
+        session_context: Optional[List[str]],
+        profanity_category: Optional[str],
+        profanity_confidence: float
+    ) -> ClassificationResult:
+        """모드 3: DETAIL_FIRST_THEN_VERIFY (logic: 추가)"""
+        # SpecialLabelFilter.detect() (우선 실행)
+        if self.special_label_filter:
+            detection = self.special_label_filter.detect(text, session_context)
+            if detection:
+                confidence = detection.confidence
+                
+                if profanity_detected and profanity_category:
+                    korcen_label = self.KORCEN_HINT_MAPPING.get(profanity_category)
+                    
+                    if korcen_label == detection.label:
+                        confidence = min(1.0, confidence + 0.1)
+                    else:
+                        confidence = max(0.0, confidence - 0.1)
+                
+                return ClassificationResult(
+                    label=detection.label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # 미감지
+        if profanity_detected and profanity_category:
+            label = self.KORCEN_HINT_MAPPING.get(profanity_category)
+            if label:
+                return ClassificationResult(
+                    label=label,
+                    label_type=LabelType.SPECIAL.value,
+                    confidence=profanity_confidence,
+                    text=text,
+                    timestamp=datetime.now()
+                )
+        
+        # Normal Label 분류
+        return self._classify_normal_label(text)
+    
+    def _classify_normal_label(self, text: str) -> ClassificationResult:
+        """Normal Label 분류 (기본값: INQUIRY) (logic: 추가)"""
+        return ClassificationResult(
+            label=NormalLabel.INQUIRY.value,
+            label_type=LabelType.NORMAL.value,
+            confidence=0.5,
+            text=text,
+            timestamp=datetime.now()
+        )
+    
+    def _default_result(self, text: str) -> ClassificationResult:
+        """기본 결과 (에러 처리) (logic: 추가)"""
+        return ClassificationResult(
+            label=NormalLabel.INQUIRY.value,
+            label_type=LabelType.UNKNOWN.value,
+            confidence=0.5,
+            text=text,
+            timestamp=datetime.now()
+        )

@@ -5,10 +5,17 @@
 """
 
 import torch
-import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import warnings
+
+# numpy는 선택적 import (사용되지 않지만 호환성을 위해 유지)
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    # numpy가 없어도 동작 가능하도록 처리
 
 try:
     from transformers import (

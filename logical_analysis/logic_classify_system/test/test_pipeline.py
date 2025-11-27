@@ -14,6 +14,7 @@ sys.path.insert(0, str(project_root))
 
 from logical_analysis.logic_classify_system.pipeline.main_pipeline import MainPipeline
 from logical_analysis.logic_classify_system.preprocessing.text_splitter import TurnSplitter, Turn
+from logical_analysis.logic_classify_system.test.test_helpers import create_test_pipeline
 
 
 def print_separator(title: str):
@@ -67,7 +68,7 @@ def test_scenario_1_normal_inquiry():
     """시나리오 1: 정상적인 문의"""
     print_separator("시나리오 1: 정상적인 문의 (Normal Label)")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_001",
@@ -94,7 +95,7 @@ def test_scenario_2_profanity():
     """시나리오 2: 욕설 포함"""
     print_separator("시나리오 2: 욕설 포함 (Special Label - PROFANITY)")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_002",
@@ -119,7 +120,7 @@ def test_scenario_3_unreasonable_demand():
     """시나리오 3: 무리한 요구"""
     print_separator("시나리오 3: 무리한 요구 (Special Label - UNREASONABLE_DEMAND)")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_003",
@@ -144,7 +145,7 @@ def test_scenario_4_complaint():
     """시나리오 4: 불만/민원"""
     print_separator("시나리오 4: 불만/민원 (Normal Label - COMPLAINT)")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_004",
@@ -169,7 +170,7 @@ def test_scenario_5_repetition_keyword():
     """시나리오 5: 반복 표현 키워드"""
     print_separator("시나리오 5: 반복 표현 키워드 감지")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_005",
@@ -194,7 +195,7 @@ def test_scenario_6_single_turn():
     """시나리오 6: 단일 Turn 처리"""
     print_separator("시나리오 6: 단일 Turn 처리")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     turn_splitter = TurnSplitter()
     
     # 간단한 텍스트로 Turn 분할
@@ -212,7 +213,7 @@ def test_scenario_7_threat():
     """시나리오 7: 위협 표현"""
     print_separator("시나리오 7: 위협 표현 (Special Label - VIOLENCE_THREAT)")
     
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     stt_data = {
         "session_id": "test_007",

@@ -19,6 +19,7 @@ sys.path.insert(0, str(project_root))
 
 from logical_analysis.logic_classify_system.pipeline.main_pipeline import MainPipeline
 from logical_analysis.logic_classify_system.config.labels import NORMAL_LABELS, SPECIAL_LABELS
+from logical_analysis.logic_classify_system.test.test_helpers import create_test_pipeline
 from logical_analysis.logic_classify_system.test.test_special_label_classification import (
     print_separator,
     load_stt_file,
@@ -283,7 +284,7 @@ def validate_with_ground_truth(
     print_separator("정답지 기반 검증 시작")
     
     # MainPipeline 초기화
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     # 검증 결과 저장
     validation_results = {

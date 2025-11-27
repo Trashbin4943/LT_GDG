@@ -1,8 +1,7 @@
 """
-Logic Classify System - Turn 단위 분석 시스템
+Logic Classify System
 
-Turn 단위로 발화를 분석하여 특징점을 추출하고 스코어링하는 모듈
+실시간 상담 시스템을 위한 텍스트 분류 파이프라인
 """
 
-
-
+__version__ = "1.0.0"

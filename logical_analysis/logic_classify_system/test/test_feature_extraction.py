@@ -17,6 +17,7 @@ sys.path.insert(0, str(project_root))
 
 from logical_analysis.logic_classify_system.pipeline.main_pipeline import MainPipeline
 from logical_analysis.logic_classify_system.config.labels import NORMAL_LABELS, SPECIAL_LABELS
+from logical_analysis.logic_classify_system.test.test_helpers import create_test_pipeline
 
 
 def print_separator(title: str):
@@ -250,7 +251,7 @@ def test_feature_extraction(
     print()
     
     # MainPipeline 초기화
-    pipeline = MainPipeline()
+    pipeline = create_test_pipeline(use_models=True)
     
     # 결과 저장
     all_results = []

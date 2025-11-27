@@ -275,10 +275,14 @@ pyrightconfig.json
 linguaproject/logic_classify_system/legacy/
 linguaproject/logic_classify_system/personal/
 
-# Markdown files - ignore all .md files except those in docs/ folders
-# Only documentation in docs/ folders should be tracked
+# Markdown files - ignore all .md files except README.md
+# Documentation in docs/ folders should be ignored (internal documentation)
 *.md
+<<<<<<< Updated upstream
 !**/docs/**/*.md
+=======
+!README.md
+docs/
 
 ### Machine Learning Training & Model Files ###
 # Model weights and checkpoints
@@ -299,6 +303,11 @@ kobert_immorality_intensity_regression/
 logical_analysis/logic_classify_system/models/*/trained/
 logical_analysis/logic_classify_system/models/*/fine-tuned/
 logical_analysis/logic_classify_system/models/immorality_intensity/
+
+# Model checkpoints (large files, should not be committed)
+logical_analysis/logic_classify_system/models/checkpoints/*/checkpoint-*/
+!logical_analysis/logic_classify_system/models/checkpoints/.gitkeep
+!logical_analysis/logic_classify_system/models/checkpoints/README.md
 
 # Training logs
 logs/
@@ -342,3 +351,4 @@ kobert_*.zip
 # Jupyter notebook checkpoints (already in template, but ensuring)
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
+>>>>>>> Stashed changes
