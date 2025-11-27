@@ -77,3 +77,31 @@ def analyze_json(request, file: UploadedFile = File(...)):
 
     return {"status": "success", "results": results}
 
+from ninja import Router, File
+from ninja.files import UploadedFile
+import os
+
+from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
+
+router = Router()
+
+import tempfile
+
+@router.post("/analyze-audio")
+def analyze_audio_file(request, file: UploadedFile = File(...)):
+    analyzer = UnifiedEmotionAnalyzer()
+
+    # tempfile로 안전하게 임시 파일 생성
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+        tmp.write(file.read())
+        temp_path = tmp.name
+
+    result = analyzer.analyze_audio(temp_path)
+
+    os.remove(temp_path)  # 임시 파일 삭제
+
+    return {
+        "status": "success",
+        "filename": file.name,
+        "emotion": result
+    }
