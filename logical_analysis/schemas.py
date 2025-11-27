@@ -3,10 +3,12 @@ from pydantic import BaseModel, Field, ConfigDict
 
 # === 1. API Input Schema (STT 결과 수신용) ===
 class SegmentInput(BaseModel):
-    speaker: str  # 'customer' (agent 데이터가 들어와도 무시하거나, 파이프라인에서 필터링됨)
+    """STT 세그먼트 입력 (통일된 양식)"""
+    speaker: str  # 'customer' or 'agent' (통일된 양식: customer/agent 사용)
     text: str
-    timestamp: Optional[str] = None
-    # 필요하다면 start_time, end_time 등 추가
+    start_time: Optional[float] = None  # 시작 시간 (초 단위, SpeakerSegment와 일치)
+    end_time: Optional[float] = None  # 종료 시간 (초 단위, SpeakerSegment와 일치)
+    timestamp: Optional[str] = None  # ISO 형식 타임스탬프 (하위 호환성 유지)
 
 class SessionAnalysisRequest(BaseModel):
     """API로 들어오는 전체 세션 데이터"""

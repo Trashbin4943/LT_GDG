@@ -64,9 +64,10 @@ class EnhancedIntentPredictor:
     def predict(
         self,
         text: str,
-        profanity_detected: bool,
-        profanity_confidence: float = 0.0,
-        session_context: Optional[List[str]] = None
+        profanity_detected: bool = False,
+        session_context: Optional[List[str]] = None,
+        profanity_category: Optional[str] = None,
+        profanity_confidence: float = 0.0
     ) -> ClassificationResult:
         """
         향상된 의도 예측 (이중 모델 통합)
@@ -74,8 +75,9 @@ class EnhancedIntentPredictor:
         Args:
             text: 분석할 텍스트
             profanity_detected: 욕설 감지 여부
-            profanity_confidence: 욕설 신뢰도
             session_context: 세션 맥락
+            profanity_category: 욕설 카테고리 (호환성용, 현재 미사용)
+            profanity_confidence: 욕설 신뢰도
         
         Returns:
             ClassificationResult (intensity 정보 포함)

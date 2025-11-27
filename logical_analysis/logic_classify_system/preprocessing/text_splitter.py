@@ -140,3 +140,76 @@ class TurnSplitter:
         
         return turns
 
+
+class TextSplitter:
+    """
+    텍스트 분할기
+    
+    간단한 텍스트를 문장 단위로 분할하고, 화자별로 구분합니다.
+    """
+    
+    def __init__(self):
+        """텍스트 분할기 초기화"""
+        pass
+    
+    def split_sentences(self, text: str) -> List[str]:
+        """
+        텍스트를 문장 단위로 분할
+        
+        Args:
+            text: 분할할 텍스트
+            
+        Returns:
+            문장 리스트
+        """
+        import re
+        # 문장 구분자로 분할 (마침표, 느낌표, 물음표 등)
+        sentences = re.split(r'[.!?。！？]\s+', text)
+        # 빈 문장 제거 및 공백 제거
+        sentences = [s.strip() for s in sentences if s.strip()]
+        return sentences if sentences else [text.strip()] if text.strip() else []
+    
+    def split_by_speaker(self, text: str) -> Tuple[List[str], List[str]]:
+        """
+        텍스트를 화자별로 분할
+        
+        Args:
+            text: 분할할 텍스트
+            
+        Returns:
+            (customer_sentences, agent_sentences) 튜플
+        """
+        import re
+        
+        customer_sentences = []
+        agent_sentences = []
+        
+        # 화자 태그 패턴 (고객/상담사 구분)
+        customer_pattern = r'(?:고객|customer|손님)[:：]\s*(.+?)(?=(?:상담사|agent|상담원)[:：]|$)'
+        agent_pattern = r'(?:상담사|agent|상담원)[:：]\s*(.+?)(?=(?:고객|customer|손님)[:：]|$)'
+        
+        customer_matches = re.findall(customer_pattern, text, re.DOTALL | re.IGNORECASE)
+        agent_matches = re.findall(agent_pattern, text, re.DOTALL | re.IGNORECASE)
+        
+        # 고객 발화 처리
+        for match in customer_matches:
+            text_part = match.strip()
+            if text_part:
+                # 문장 단위로 추가 분할
+                sentences = self.split_sentences(text_part)
+                customer_sentences.extend(sentences)
+        
+        # 상담원 발화 처리
+        for match in agent_matches:
+            text_part = match.strip()
+            if text_part:
+                # 문장 단위로 추가 분할
+                sentences = self.split_sentences(text_part)
+                agent_sentences.extend(sentences)
+        
+        # 태그가 없으면 전체를 고객 발화로 간주 (문장 단위로 분할)
+        if not customer_sentences and not agent_sentences:
+            sentences = self.split_sentences(text)
+            customer_sentences = sentences
+        
+        return customer_sentences, agent_sentences

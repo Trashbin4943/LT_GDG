@@ -5,34 +5,22 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Count
 from datetime import datetime
+from ninja_jwt.authentication import JWTAuth
 
 from audio_process.models import CallRecording, SpeakerSegment
 from .models import ClassificationResult
-from .schemas import AnalyzeRequest, AnalysisSessionOut, ClassificationResultOut
-from .inference import run_pipeline
+from .schemas import AnalyzeRequest, AnalysisSessionOut, ClassificationResultOut, SessionAnalysisRequest
+from .services import analyze_and_save_customer_turns, analyze_from_db_segments
 
 router = Router()
 
-<<<<<<< Updated upstream
-@router.post("/analyze")
-def run_analysis_for_session(request, payload: AnalyzeRequest):
-    recording = get_object_or_404(CallRecording, session_id=payload.session_id)
-    segments = recording.segments.all()
-    
-    if not segments.exists():
-        return {"status": "error", "message": "분석할 텍스트 데이터(Segments)가 없습니다."}
 
-    saved_count = 0
-    
-    with transaction.atomic():
-        results_to_create = []
-=======
-@router.post("/analyze/customer", summary="고객 발화 분석 및 저장")
+@router.post("/analyze/customer", summary="고객 발화 분석 및 저장", auth=JWTAuth())
 def analyze_customer_session(
     request, 
     payload: SessionAnalysisRequest,
-    auto_generate_solution: bool = True,  # [NEW] 자동 솔루션 생성 여부
-    skip_existing: bool = False  # [NEW] 기존 분석 결과 스킵 여부
+    auto_generate_solution: bool = True,  # 자동 솔루션 생성 여부
+    skip_existing: bool = False  # 기존 분석 결과 스킵 여부
 ):
     """
     [POST] 세션 STT 데이터를 입력받아 고객 발화만 분석하고 저장합니다.
@@ -49,36 +37,43 @@ def analyze_customer_session(
             skip_existing=skip_existing
         )
         return result
->>>>>>> Stashed changes
-        
-        for seg in segments:
-            if hasattr(seg, 'logical_analysis'):
-                continue
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
-            ai_res = run_pipeline(seg.text, payload.session_id) 
-            res_data = ai_res.results[0] if hasattr(ai_res, 'results') and ai_res.results else ai_res
 
-            results_to_create.append(ClassificationResult(
-                segment=seg,
-                label=res_data.label,
-                label_type=res_data.label_type,
-                confidence=res_data.confidence,
-                probabilities=res_data.probabilities or {},
-                action=getattr(res_data, 'action', 'MONITOR'),
-                alert_level=getattr(res_data, 'alert_level', 'LOW'),
-                timestamp=datetime.now()
-            ))
-
-        if results_to_create:
-            ClassificationResult.objects.bulk_create(results_to_create)
-            saved_count = len(results_to_create)
-            
-
-    return {
-        "status": "success",
-        "session_id": payload.session_id,
-        "analyzed_segments": saved_count
-    }
+@router.post("/analyze/customer/{session_id}", summary="DB에서 고객 발화 분석 및 저장", auth=JWTAuth())
+def analyze_customer_session_from_db(
+    request,
+    session_id: str,
+    auto_generate_solution: bool = True,
+    skip_existing: bool = False
+):
+    """
+    [POST] session_id를 받아서 DB의 SpeakerSegment에서 직접 데이터를 읽어 분석합니다.
+    emotion_system과 통일된 방식으로 데이터를 처리합니다.
+    
+    Args:
+        session_id: 세션 ID
+        auto_generate_solution: 솔루션 자동 생성 여부
+        skip_existing: 기존 분석 결과 스킵 여부
+    """
+    recording = get_object_or_404(CallRecording, session_id=session_id, uploader=request.user)
+    
+    try:
+        result = analyze_from_db_segments(
+            recording,
+            auto_generate_solution=auto_generate_solution,
+            skip_existing=skip_existing
+        )
+        return result
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
 
 
 @router.get("/{session_id}", response=AnalysisSessionOut)

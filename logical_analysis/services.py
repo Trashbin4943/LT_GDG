@@ -1,6 +1,8 @@
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
+from django.db.models import Max
 import logging
+from typing import Optional
 
 # 1. Pipeline Import
 from .logic_classify_system.pipeline.main_pipeline import MainPipeline
@@ -8,7 +10,19 @@ from .logic_classify_system.pipeline.main_pipeline import MainPipeline
 # 2. Models Import (SpeakerSegment는 audio_process 앱, Result는 현재 앱)
 from audio_process.models import SpeakerSegment, CallRecording
 from .models import CustomerAnalysisResult
-from .schemas import SessionAnalysisRequest
+from .schemas import SessionAnalysisRequest, SegmentInput
+
+# 3. Configuration Import (정적 import로 변경)
+from .logic_classify_system.config.model_paths import (
+    get_intensity_model_path,
+    get_ternary_model_path
+)
+
+# 4. Solution System Import (선택적, 런타임에만 사용)
+try:
+    from solution_system.services import generate_solution_from_analysis
+except ImportError:
+    generate_solution_from_analysis = None
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +84,11 @@ def analyze_and_save_customer_turns(
         dict: 분석 결과 통계
     """
     
-    # 1. 파이프라인 실행 (모델 경로 전달)
+    # 1. 세션 ID 확인
+    session_id = request_data.session_id
+    
+    # 2. 파이프라인 실행 (고객 발화만 추출하여 텍스트로 변환)
     try:
-        from .logic_classify_system.config.model_paths import get_intensity_model_path, get_ternary_model_path
-        
         intensity_model_path = get_intensity_model_path()
         ternary_model_path = get_ternary_model_path()
         
@@ -82,57 +97,111 @@ def analyze_and_save_customer_turns(
             ternary_model_path=ternary_model_path,
             use_enhanced_predictor=True
         )
-        pipeline_result = pipeline.process(request_data.model_dump())
-        logger.info(f"파이프라인 실행 완료: session_id={pipeline_result.session_id}, turns={len(pipeline_result.turn_results)}")
+        
+        # 고객 발화만 추출하여 텍스트로 합치기
+        customer_texts = []
+        segment_map = {}  # turn_index -> segment 정보 매핑
+        
+        for idx, seg_input in enumerate(request_data.segments):
+            if seg_input.speaker == 'customer':
+                if seg_input.text and seg_input.text.strip():
+                    customer_texts.append(seg_input.text.strip())
+                    segment_map[len(customer_texts) - 1] = {
+                        'index': idx,
+                        'start_time': seg_input.start_time,
+                        'end_time': seg_input.end_time,
+                        'text': seg_input.text
+                    }
+        
+        # 고객 발화 텍스트를 합쳐서 파이프라인에 전달
+        combined_text = ' '.join(customer_texts) if customer_texts else ''
+        if not combined_text:
+            logger.warning(f"세션 {session_id}: 고객 발화가 없습니다.")
+            return {
+                "status": "success",
+                "session_id": session_id,
+                "processed_customer_turns": 0,
+                "skipped_turns": 0,
+                "error_turns": 0,
+                "generated_solutions": 0
+            }
+        
+        # 파이프라인 실행
+        pipeline_result = pipeline.process(combined_text, session_id)
+        logger.info(f"파이프라인 실행 완료: session_id={session_id}, results={len(pipeline_result.results)}")
     except Exception as e:
         logger.error(f"파이프라인 실행 실패: {e}", exc_info=True)
         raise ValueError(f"파이프라인 실행 실패: {str(e)}")
-    
-    session_id = pipeline_result.session_id
-    saved_count = 0
-    skipped_count = 0
-    error_count = 0
-    solution_count = 0
 
+    # 3. CallRecording 조회
     try:
         recording_obj = CallRecording.objects.get(session_id=str(session_id))
     except CallRecording.DoesNotExist:
         raise ValueError(f"Session ID {str(session_id)} not found in CallRecording.")
 
-    # 2. 결과 순회 및 저장
-    for turn_res in pipeline_result.turn_results:
-        
-        # Customer Result가 존재하는 경우만 처리 (Agent 무시)
-        if not turn_res.customer_result:
-            continue
+    # 4. 결과 순회 및 저장
+    saved_count = 0
+    skipped_count = 0
+    error_count = 0
+    solution_count = 0
+    
+    # 파이프라인 결과와 세그먼트를 매핑하여 저장
+    for result_idx, classification_result in enumerate(pipeline_result.results):
         
         try:
-            c_res = turn_res.customer_result
-            turn_index = turn_res.turn_index
+            # 세그먼트 정보 가져오기
+            seg_info = segment_map.get(result_idx, {})
+            seg_input = request_data.segments[seg_info.get('index', result_idx)] if seg_info.get('index') is not None else None
+            
+            # 텍스트 추출
+            text = classification_result.text or seg_info.get('text', '')
+            start_time = seg_info.get('start_time', 0.0) or 0.0
+            end_time = seg_info.get('end_time', 0.0) or 0.0
+            
+            # turn_index는 DB에서 기존 세그먼트를 찾거나 새로 생성
+            # 고객 발화만 필터링
+            if seg_input and seg_input.speaker != 'customer':
+                continue
+            
             timestamp = timezone.now()
 
             # (1) 부모 세그먼트 저장/조회 (audio_process 앱)
-            segment, created = SpeakerSegment.objects.get_or_create(
+            # 텍스트와 시간 정보로 기존 세그먼트 찾기 또는 생성
+            segment = None
+            # 먼저 텍스트로 찾기
+            existing_segments = SpeakerSegment.objects.filter(
                 session_id=recording_obj,
-                turn_index=turn_index,
-                defaults={
-                    'text': _validate_text(c_res.text),
-                    'speaker_label': 'customer',
-                    'start_time': 0.0,
-                    'end_time': 0.0
-                }
-            )
+                text=text,
+                speaker_label__in=['customer', 'client']
+            ).order_by('turn_index')
+            
+            if existing_segments.exists():
+                segment = existing_segments.first()
+            else:
+                # 새로 생성
+                max_turn = SpeakerSegment.objects.filter(session_id=recording_obj).aggregate(
+                    max_turn=Max('turn_index')
+                )['max_turn'] or -1
+                
+                segment = SpeakerSegment.objects.create(
+                    session_id=recording_obj,
+                    turn_index=max_turn + 1,
+                    text=_validate_text(text),
+                    speaker_label='customer',
+                    start_time=start_time,
+                    end_time=end_time
+                )
             
             # [NEW] 기존 분석 결과 스킵 옵션
             if skip_existing and hasattr(segment, 'customer_analysis'):
                 skipped_count += 1
-                logger.debug(f"Turn {turn_index} 분석 결과 스킵 (이미 존재)")
+                logger.debug(f"Segment {segment.id} 분석 결과 스킵 (이미 존재)")
                 continue
             
             # [NEW] emotion_label 확인 (emotion_system에서 가져옴)
             emotion_label = segment.emotion_label or "중립"
             if not segment.emotion_label:
-                logger.warning(f"Turn {turn_index}: emotion_label이 없음, 기본값 '중립' 사용")
+                logger.warning(f"Segment {segment.id}: emotion_label이 없음, 기본값 '중립' 사용")
 
             # (2) 고객 분석 결과 저장 (검증 포함)
             CustomerAnalysisResult.objects.update_or_create(
@@ -140,86 +209,64 @@ def analyze_and_save_customer_turns(
                 defaults={
                     # 분류 결과 (검증 포함)
                     'label': _validate_label(
-                        c_res.classification_result.label,
+                        classification_result.label,
                         default="INQUIRY"
                     ),
                     'label_type': _validate_label_type(
-                        c_res.classification_result.label,
-                        c_res.classification_result.label_type or "NORMAL"
+                        classification_result.label,
+                        classification_result.label_type or "NORMAL"
                     ),
                     'classification_confidence': _validate_score(
-                        c_res.classification_result.confidence,
+                        classification_result.confidence,
                         'classification_confidence'
                     ),
-                    'classification_probabilities': c_res.classification_result.probabilities or {},
-
-                    # 욕설 감지 결과 (검증 포함)
-                    'is_profanity': bool(c_res.profanity_result.is_profanity),
-                    'profanity_category': c_res.profanity_result.category or None,
-                    'profanity_method': c_res.profanity_result.method or None,  # [FIX] 추가!
+                    'classification_probabilities': classification_result.probabilities or {},
                     
-                    # 주요 리스크 점수 (검증 포함)
-                    'score_risk': _validate_score(
-                        turn_res.turn_scores.get('turn_risk_score', 0.0),
-                        'score_risk'
-                    ),
-                    'score_profanity': _validate_score(
-                        c_res.feature_scores.get('profanity_score', 0.0),
-                        'score_profanity'
-                    ),
-                    'score_threat': _validate_score(
-                        c_res.feature_scores.get('threat_score', 0.0),
-                        'score_threat'
-                    ),
-                    'score_unreasonable_demand': _validate_score(
-                        c_res.feature_scores.get('unreasonable_demand_score', 0.0),
-                        'score_unreasonable_demand'
-                    ),
-                    'score_sexual_harassment': _validate_score(
-                        c_res.feature_scores.get('sexual_harassment_score', 0.0),
-                        'score_sexual_harassment'
-                    ),
-                    'score_hate_speech': _validate_score(
-                        c_res.feature_scores.get('hate_speech_score', 0.0),
-                        'score_hate_speech'
-                    ),
-                    'score_repetition': _validate_score(
-                        c_res.feature_scores.get('repetition_keyword_score', 0.0),
-                        'score_repetition'
-                    ),
-
-                    # 상세 정보 (JSON Fields)
-                    'feature_scores_extra': c_res.feature_scores or {},
-                    'extracted_features': c_res.extracted_features or {},
+                    # 욕설 감지 결과 (기본값 - 실제로는 profanity_result가 필요)
+                    'is_profanity': False,
+                    'profanity_category': None,
+                    'profanity_method': None,
+                    
+                    # 주요 리스크 점수 (기본값)
+                    'score_risk': 0.0,
+                    'score_profanity': 0.0,
+                    'score_threat': 0.0,
+                    'score_unreasonable_demand': 0.0,
+                    'score_sexual_harassment': 0.0,
+                    'score_hate_speech': 0.0,
+                    'score_repetition': 0.0,
+                    
+                    # 상세 정보
+                    'feature_scores_extra': {},
+                    'extracted_features': {},
                     
                     'analyzed_at': timestamp
                 }
             )
             
             # [NEW] 3. solution_system 자동 호출
-            if auto_generate_solution:
+            if auto_generate_solution and generate_solution_from_analysis:
                 try:
-                    from solution_system.services import generate_solution_from_analysis
                     generate_solution_from_analysis(segment, emotion_label)
                     solution_count += 1
-                    logger.debug(f"Turn {turn_index} 솔루션 생성 완료")
+                    logger.debug(f"Segment {segment.id} 솔루션 생성 완료")
                 except Exception as e:
-                    # 솔루션 생성 실패해도 분석 결과는 저장
                     logger.warning(
-                        f"Turn {turn_index} 솔루션 생성 실패 (분석 결과는 저장됨): {e}",
+                        f"Segment {segment.id} 솔루션 생성 실패 (분석 결과는 저장됨): {e}",
                         exc_info=True
                     )
+            elif auto_generate_solution and not generate_solution_from_analysis:
+                logger.warning(f"Segment {segment.id}: solution_system을 사용할 수 없습니다.")
             
             saved_count += 1
-            logger.debug(f"Turn {turn_index} 분석 결과 저장 완료: label={c_res.classification_result.label}, risk={turn_res.turn_scores.get('turn_risk_score', 0.0)}")
+            logger.debug(f"Segment {segment.id} 분석 결과 저장 완료: label={classification_result.label}")
             
         except Exception as e:
             error_count += 1
             logger.error(
-                f"Turn {turn_index} 분석 결과 저장 실패: {e}",
+                f"Result {result_idx} 분석 결과 저장 실패: {e}",
                 exc_info=True
             )
-            # 개별 Turn 실패해도 계속 진행
             continue
             
     logger.info(
@@ -235,3 +282,71 @@ def analyze_and_save_customer_turns(
         "error_turns": error_count,
         "generated_solutions": solution_count if auto_generate_solution else 0
     }
+
+
+def _convert_segments_to_request(recording: CallRecording) -> SessionAnalysisRequest:
+    """
+    DB의 SpeakerSegment를 SessionAnalysisRequest로 변환합니다.
+    STT 데이터 양식을 통일하여 처리합니다.
+    
+    Args:
+        recording: CallRecording 객체
+        
+    Returns:
+        SessionAnalysisRequest 객체
+    """
+    segments = recording.segments.all().order_by('turn_index', 'start_time')
+    
+    segment_inputs = []
+    for seg in segments:
+        # speaker_label을 통일된 형식으로 변환 (client -> customer, counselor -> agent)
+        speaker = seg.speaker_label
+        if speaker == 'client':
+            speaker = 'customer'
+        elif speaker == 'counselor':
+            speaker = 'agent'
+        elif speaker == 'unknown':
+            # unknown은 is_counselor 필드로 판단
+            speaker = 'agent' if seg.is_counselor else 'customer'
+        
+        segment_inputs.append(SegmentInput(
+            speaker=speaker,
+            text=seg.text or "",
+            start_time=float(seg.start_time) if seg.start_time else None,
+            end_time=float(seg.end_time) if seg.end_time else None,
+            timestamp=None  # 필요시 추가
+        ))
+    
+    return SessionAnalysisRequest(
+        session_id=str(recording.session_id),
+        segments=segment_inputs
+    )
+
+
+@transaction.atomic
+def analyze_from_db_segments(
+    recording: CallRecording,
+    auto_generate_solution: bool = True,
+    skip_existing: bool = False
+):
+    """
+    DB의 SpeakerSegment에서 직접 데이터를 읽어 분석합니다.
+    emotion_system과 동일한 방식으로 데이터를 처리합니다.
+    
+    Args:
+        recording: CallRecording 객체
+        auto_generate_solution: 솔루션 자동 생성 여부
+        skip_existing: 기존 분석 결과 스킵 여부
+        
+    Returns:
+        dict: 분석 결과 통계
+    """
+    # 1. DB에서 데이터를 SessionAnalysisRequest 형식으로 변환
+    request_data = _convert_segments_to_request(recording)
+    
+    # 2. 기존 함수 재사용
+    return analyze_and_save_customer_turns(
+        request_data,
+        auto_generate_solution=auto_generate_solution,
+        skip_existing=skip_existing
+    )

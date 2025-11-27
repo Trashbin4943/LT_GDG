@@ -35,7 +35,7 @@ from ..config.labels import PipelineMode
 try:
     from ..labeling.label_router import LabelRouter
 except ImportError:
-    LabelRouter = None
+    LabelRouter = None  # LabelRouter가 없을 경우 None으로 설정
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +111,7 @@ class MainPipeline:
         Returns:
             PipelineResult (전체 처리 결과)
         """
-        # 1. 문장 단위 분할
-        sentences = self.text_splitter.split_sentences(text)
+        # 1. 화자별 문장 분할 (고객/상담원 구분)
         customer_sentences, agent_sentences = self.text_splitter.split_by_speaker(text)
         
         # 2. 각 고객 문장 처리
