@@ -22,4 +22,5 @@ urlpatterns = [
 
     path('', main_views.index, name='index'),
     path('',include('accounts.urls')),
+    path('audio/', include('audio_process.urls')),
 ]
