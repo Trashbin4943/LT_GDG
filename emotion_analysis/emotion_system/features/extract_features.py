@@ -19,13 +19,5 @@ def extract_features(file_path):
     duration = librosa.get_duration(y=y, sr=sr)
     speech_rate = len(librosa.effects.split(y)) / duration
 
-    features = {
-        'pitch': pitch,
-        'energy': energy,
-        'spec_centroid': spec_centroid,
-        'zcr': zcr,
-        'speech_rate': speech_rate
-    }
-    for i, val in enumerate(mfccs_mean):
-        features[f'mfcc_{i+1}'] = val
-    return features
+    feature_vector = np.array([pitch, energy, spec_centroid, zcr, speech_rate, *mfccs_mean])
+    return feature_vector.reshape(1, 1, -1)  # LSTM 입력 형태
