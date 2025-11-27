@@ -10,6 +10,10 @@ def recording_list_view(request):
     return render(request, 'index.html')
 
 @login_required
+def upload_file_view(request):
+    return render(request, 'audio/upload.html')
+
+@login_required
 def correction_view(request, session_id):
     """수정 및 화자 분리 페이지 렌더링"""
     # 존재하는 세션인지 확인 (404 방지)

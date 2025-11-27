@@ -19,7 +19,7 @@ def load_text_model():
         
         # Hugging Face Hub에서 업로드한 모델 불러오기
         model_name = "rattyrat0/kote-multilabel-model"
-        _tokenizer = AutoTokenizer.from_pretrained("monologg/kobert")  # KoBERT 토크나이저
+        _tokenizer = AutoTokenizer.from_pretrained("monologg/kobert", trust_remote_code=True)  # KoBERT 토크나이저
         _model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
         _model.to(_device)

@@ -13,7 +13,6 @@ from .schemas import SolutionRequestDTO
 
 logger = logging.getLogger(__name__)
 
-@transaction.atomic
 def generate_solution_from_analysis(
     segment: SpeakerSegment,
     emotion_label: str
@@ -64,7 +63,7 @@ def generate_and_save_solution(request_data: SolutionRequestDTO) -> SolutionResu
     # audio_process 모델에 session_id와 turn_index가 추가되었으므로 바로 검색 가능
     segment = get_object_or_404(
         SpeakerSegment, 
-        session_id=request_data.session_id, 
+        session_id__session_id=request_data.session_id, 
         turn_index=request_data.turn_index
     )
 

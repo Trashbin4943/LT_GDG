@@ -24,5 +24,4 @@ urlpatterns = [
     path('', main_views.index, name='index'),
     path('',include('accounts.urls')),
     path('audio/', include('audio_process.urls')),
-    path('emotion/', include('emotion_analysis.urls')),
 ]

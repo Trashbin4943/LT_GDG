@@ -101,9 +101,11 @@ def analyze_and_save_customer_turns(
         # 고객 발화만 추출하여 텍스트로 합치기
         customer_texts = []
         segment_map = {}  # turn_index -> segment 정보 매핑
-        
+        target_speakers=['customer','client']
+
+
         for idx, seg_input in enumerate(request_data.segments):
-            if seg_input.speaker == 'customer':
+            if seg_input.speaker in target_speakers:
                 if seg_input.text and seg_input.text.strip():
                     customer_texts.append(seg_input.text.strip())
                     segment_map[len(customer_texts) - 1] = {
@@ -129,6 +131,7 @@ def analyze_and_save_customer_turns(
         # 파이프라인 실행
         pipeline_result = pipeline.process(combined_text, session_id)
         logger.info(f"파이프라인 실행 완료: session_id={session_id}, results={len(pipeline_result.results)}")
+    
     except Exception as e:
         logger.error(f"파이프라인 실행 실패: {e}", exc_info=True)
         raise ValueError(f"파이프라인 실행 실패: {str(e)}")
@@ -145,64 +148,35 @@ def analyze_and_save_customer_turns(
     error_count = 0
     solution_count = 0
     
+    db_segments = SpeakerSegment.objects.filter(
+        session_id=recording_obj,
+        speaker_label__in=['customer', 'client']
+    )
+
+    segment_lookup = {seg.start_time: seg for seg in db_segments}
+
     # 파이프라인 결과와 세그먼트를 매핑하여 저장
     for result_idx, classification_result in enumerate(pipeline_result.results):
         
         try:
-            # 세그먼트 정보 가져오기
-            seg_info = segment_map.get(result_idx, {})
-            seg_input = request_data.segments[seg_info.get('index', result_idx)] if seg_info.get('index') is not None else None
-            
-            # 텍스트 추출
-            text = classification_result.text or seg_info.get('text', '')
-            start_time = seg_info.get('start_time', 0.0) or 0.0
-            end_time = seg_info.get('end_time', 0.0) or 0.0
-            
-            # turn_index는 DB에서 기존 세그먼트를 찾거나 새로 생성
-            # 고객 발화만 필터링
-            if seg_input and seg_input.speaker != 'customer':
+            origin_info = segment_map.get(result_idx)
+            if not origin_info:
                 continue
-            
-            timestamp = timezone.now()
-
-            # (1) 부모 세그먼트 저장/조회 (audio_process 앱)
-            # 텍스트와 시간 정보로 기존 세그먼트 찾기 또는 생성
-            segment = None
-            # 먼저 텍스트로 찾기
-            existing_segments = SpeakerSegment.objects.filter(
-                session_id=recording_obj,
-                text=text,
-                speaker_label__in=['customer', 'client']
-            ).order_by('turn_index')
-            
-            if existing_segments.exists():
-                segment = existing_segments.first()
-            else:
-                # 새로 생성
-                max_turn = SpeakerSegment.objects.filter(session_id=recording_obj).aggregate(
-                    max_turn=Max('turn_index')
-                )['max_turn'] or -1
                 
-                segment = SpeakerSegment.objects.create(
-                    session_id=recording_obj,
-                    turn_index=max_turn + 1,
-                    text=_validate_text(text),
-                    speaker_label='customer',
-                    start_time=start_time,
-                    end_time=end_time
-                )
-            
-            # [NEW] 기존 분석 결과 스킵 옵션
-            if skip_existing and hasattr(segment, 'customer_analysis'):
-                skipped_count += 1
-                logger.debug(f"Segment {segment.id} 분석 결과 스킵 (이미 존재)")
+            target_start_time = origin_info.get('start_time')
+
+            text = origin_info.get('text','')
+
+            segment = segment_lookup.get(target_start_time)
+
+            if not segment:
                 continue
             
-            # [NEW] emotion_label 확인 (emotion_system에서 가져옴)
             emotion_label = segment.emotion_label or "중립"
+            
             if not segment.emotion_label:
-                logger.warning(f"Segment {segment.id}: emotion_label이 없음, 기본값 '중립' 사용")
-
+                logger.debug(f"Segment {segment.id}: emotion_label 없음, 기본값 '중립' 사용")
+            
             # (2) 고객 분석 결과 저장 (검증 포함)
             CustomerAnalysisResult.objects.update_or_create(
                 segment=segment,
@@ -228,7 +202,7 @@ def analyze_and_save_customer_turns(
                     'profanity_method': None,
                     
                     # 주요 리스크 점수 (기본값)
-                    'score_risk': 0.0,
+                    'score_risk': getattr(classification_result, 'score_risk', 0.0),
                     'score_profanity': 0.0,
                     'score_threat': 0.0,
                     'score_unreasonable_demand': 0.0,
@@ -240,11 +214,15 @@ def analyze_and_save_customer_turns(
                     'feature_scores_extra': {},
                     'extracted_features': {},
                     
-                    'analyzed_at': timestamp
+                    'analyzed_at': timezone.now()
                 }
             )
+
+            if segment.text != text:
+                segment.text = text
+                segment.save(update_fields=['text'])
             
-            # [NEW] 3. solution_system 자동 호출
+            # 3. solution_system 자동 호출
             if auto_generate_solution and generate_solution_from_analysis:
                 try:
                     generate_solution_from_analysis(segment, emotion_label)
