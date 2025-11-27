@@ -1,9 +1,12 @@
-from ninja import Router
+from ninja import Router, File
 from django.shortcuts import get_object_or_404
-from ninja_jwt.authentication import JWTAuth
+from accounts.jwt_auth import JWTAuth
 from audio_process.models import CallRecording, SpeakerSegment
+from ninja.files import UploadedFile
+import json
 
 from .emotion_system.emotion.text_emotion import classify_text_emotion
+from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
 
 router = Router()
 
@@ -53,13 +56,6 @@ def analyze_session_emotion(request, session_id: str):
         "message": f"총 {total_count}개 문장 중 {updated_count}개 문장 감정분석 완료."  
     }
 
-from ninja import Router, File
-from ninja.files import UploadedFile
-import json
-from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
-
-router = Router()
-
 @router.post("/analyze-json")
 def analyze_json(request, file: UploadedFile = File(...)):
     analyzer = UnifiedEmotionAnalyzer()
@@ -80,3 +76,4 @@ def analyze_json(request, file: UploadedFile = File(...)):
             })
 
     return {"status": "success", "results": results}
+

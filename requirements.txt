@@ -1,24 +1,39 @@
 # ===== Web Framework =====
 Django==5.1.2
 django-ninja==1.5.0
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.1
+django-environ==0.11.2
 
-# ===== Whisper STT =====
+# ===== Deep Learning & ML =====
+torch==2.8.0
+transformers==4.57.3
+scikit-learn==1.7.2
+scipy==1.16.3
+numpy==2.3.3
+
+# ===== Audio Processing =====
 faster-whisper==1.2.1
-ctranslate2==4.6.1
+librosa==0.11.0
+soundfile==0.13.1
+pydub==0.25.1
+pyannote.audio==4.0.2
+
+# ===== NLP/Text Processing =====
+regex==2025.11.3
 tokenizers==0.22.1
 sentencepiece==0.2.1
 
-# ===== Audio Processing =====
-librosa==0.10.2.post1
-soundfile==0.12.1
-soxr==0.3.7
-pydub==0.25.1
+# ===== Data Processing =====
+pandas==2.3.3
+pydantic==2.4.2
+
+# ===== Cloud Storage =====
+boto3==1.41.5
+django-storages==1.14.6
 
 # ===== Utilities =====
-numpy==1.26.4
 requests==2.32.3
-PyYAML==6.0.2
+PyYAML==6.0.3
 python-dateutil==2.9.0.post0
 tiktoken==0.7.0
-urllib3==2.2.2
-django-environ

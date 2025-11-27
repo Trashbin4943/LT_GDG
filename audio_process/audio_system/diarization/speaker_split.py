@@ -135,11 +135,18 @@ def diarize_and_transcribe(audio_path, save_json=False, json_path="segments.json
 from faster_whisper import WhisperModel
 import json
 
-# Whisper 모델 초기화 (CPU 환경에서는 small 권장)
-whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+# Whisper 모델은 lazy loading으로 첫 사용 시에만 초기화
+_whisper_model = None
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+    return _whisper_model
 
 def transcribe_with_timestamps(audio_path, save_json=False, json_path="segments.json"):
     # 🎤 Whisper STT 실행
+    whisper_model = get_whisper_model()
     segments, info = whisper_model.transcribe(audio_path, language="ko")
 
     results = []
