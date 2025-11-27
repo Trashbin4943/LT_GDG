@@ -2,106 +2,58 @@ from ninja import Router, File
 from django.shortcuts import get_object_or_404
 from accounts.jwt_auth import JWTAuth
 from audio_process.models import CallRecording, SpeakerSegment
-from ninja.files import UploadedFile
-import json
-
 from .emotion_system.emotion.text_emotion import classify_text_emotion
 from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
 
 router = Router()
-
 @router.post("/{session_id}/analyze", auth=JWTAuth())
 def analyze_session_emotion(request, session_id: str):
+    print(f"감정 분석 요청: {session_id}")
     recording = get_object_or_404(CallRecording, session_id=session_id, uploader=request.user)
-    client_segments = recording.segments.filter(
-        speaker_label='client',
-        is_counselor=False)
     
-    total_count = client_segments.count()
-    print("고객 발화문 총 개수:", total_count)
+    client_segments = SpeakerSegment.objects.filter(
+        session_id=recording, 
+        is_counselor=False
+    )
 
     if not client_segments.exists():
-        return {"status": "error", "message": "고객 발화 데이터가 없습니다."}
-    
+        return {"status": "warning", "message": "분석할 고객 발화가 없습니다."}
+
     updated_count = 0
     update_list = []
 
-    print("고객 발화문 감정분석 시작 - 세션ID:", session_id)
-
+    # 2. 분석 수행
     for seg in client_segments:
-        if not seg.text or len(seg.text.strip()) == 0:
-            print("빈 문장 건너뜀 - Segment ID:", seg.id)
+        if not seg.text or not seg.text.strip():
             continue
+            
         try:
-            print("분석 중 - Segment ID:", seg.id, "텍스트:", seg.text[:20])
+            # 텍스트 감정 분류 실행
+            # (리턴값이 label, confidence_list 라고 가정)
             label, confidence = classify_text_emotion(seg.text)
+            
             seg.emotion_label = label
-            seg.emotion_confidence = confidence
+            
+            # 리스트로 넘어올 경우 에러 방지 (Max값 추출)
+            if isinstance(confidence, list) or isinstance(confidence, tuple):
+                seg.emotion_confidence = float(max(confidence))
+            else:
+                seg.emotion_confidence = float(confidence)
+            
             update_list.append(seg)
             updated_count += 1
-
+            
         except Exception as e:
-            print(f"분석 실패: {e}")
+            print(f"Segment {seg.id} 분석 에러: {e}")
             continue
-    
+
+    # 3. DB 저장
     if update_list:
         SpeakerSegment.objects.bulk_update(update_list, ['emotion_label', 'emotion_confidence'])
-    
-    print("감정분석 완료 - 분석된 문장 수:", updated_count)
 
     return {
         "status": "success",
         "session_id": session_id,
-        "analyzed_segments": updated_count,
-        "message": f"총 {total_count}개 문장 중 {updated_count}개 문장 감정분석 완료."  
-    }
-
-@router.post("/analyze-json")
-def analyze_json(request, file: UploadedFile = File(...)):
-    analyzer = UnifiedEmotionAnalyzer()
-
-    # 업로드된 JSON 파일 읽기
-    data = json.load(file)
-
-    results = []
-    for seg in data.get("segments", []):
-        text = seg.get("text", "")
-        if text:
-            emotion = analyzer.analyze_text(text)
-            results.append({
-                "start": seg.get("start"),
-                "end": seg.get("end"),
-                "text": text,
-                "emotion": emotion
-            })
-
-    return {"status": "success", "results": results}
-
-from ninja import Router, File
-from ninja.files import UploadedFile
-import os
-
-from emotion_analysis.emotion_system.emotion.unified_emotion import UnifiedEmotionAnalyzer
-
-router = Router()
-
-import tempfile
-
-@router.post("/analyze-audio")
-def analyze_audio_file(request, file: UploadedFile = File(...)):
-    analyzer = UnifiedEmotionAnalyzer()
-
-    # tempfile로 안전하게 임시 파일 생성
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-        tmp.write(file.read())
-        temp_path = tmp.name
-
-    result = analyzer.analyze_audio(temp_path)
-
-    os.remove(temp_path)  # 임시 파일 삭제
-
-    return {
-        "status": "success",
-        "filename": file.name,
-        "emotion": result
+        "analyzed_count": updated_count,
+        "message": "감정 분석 완료"
     }

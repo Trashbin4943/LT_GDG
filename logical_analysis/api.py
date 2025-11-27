@@ -9,7 +9,7 @@ from accounts.jwt_auth import JWTAuth
 
 from audio_process.models import CallRecording, SpeakerSegment
 from .models import CustomerAnalysisResult
-from .schemas import SessionAnalysisRequest
+from .schemas import CustomerAnalysisResponseSchema, SessionAnalysisRequest
 from .services import analyze_and_save_customer_turns, analyze_from_db_segments
 
 router = Router()
@@ -59,11 +59,11 @@ def analyze_customer_session_from_db(
         return {"status": "error", "message": str(e)}
 
 
-@router.get("/{session_id}")
+@router.get("/{session_id}", response=CustomerAnalysisResponseSchema)
 def get_analysis_result(request, session_id: str):
     """세션별 논리 분석 결과 조회"""
     recording = get_object_or_404(CallRecording, session_id=session_id)
-    segments = recording.segments.select_related('customer_analysis').all().order_by('turn_index')
+    segments = recording.segments.select_related('customer_analysis').all().order_by('start_time')
     
     output_results = []
     valid_results = []
@@ -77,17 +77,28 @@ def get_analysis_result(request, session_id: str):
                 "text": seg.text,
                 "label": res.label,
                 "label_type": res.label_type,
-                "confidence": res.classification_confidence,
+                "classification_confidence": res.classification_confidence,
                 "probabilities": res.classification_probabilities,
-                "risk_score": res.score_risk,
-                "analyzed_at": res.analyzed_at,
+
+                "score_risk":res.score_risk,
+                "is_profanity": res.is_profanity,
+
+                "timestamp": res.timestamp,
+                "created_at": res.created_at
             })
 
     total_count = len(valid_results)
-    risk_count = sum(1 for r in valid_results if r.score_risk > 0.7)
+    risk_count = sum(1 for r in valid_results 
+                     if r.label_type=='SPECIAL' or r.score_risk >= 0.6)
     
-    highest_risk = max([r.score_risk for r in valid_results], default=0.0)
-    
+    highest = 'LOW'
+    if any(r.score_risk >= 0.8 for r in valid_results):
+        highest = 'CRITICAL'
+    elif any(r.score_risk >= 0.6 for r in valid_results):
+        highest = 'HIGH'
+    elif any(r.label_type == 'SPECIAL' for r in valid_results):
+        highest = 'MEDIUM'
+
     most_common_label = "None"
     if total_count > 0:
         from collections import Counter
