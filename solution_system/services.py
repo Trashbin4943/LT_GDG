@@ -6,8 +6,6 @@ import logging
 # 1. 모델 Import
 from audio_process.models import SpeakerSegment
 from .models import SolutionResult
-
-# 2. 로직 및 스키마 Import
 from .logic.solution_generator import SolutionGenerator
 from .schemas import SolutionRequestDTO
 
@@ -54,7 +52,18 @@ def generate_solution_from_analysis(
 
 @transaction.atomic
 def generate_and_save_solution(request_data: SolutionRequestDTO) -> SolutionResult:
+    """
+    SolutionRequestDTO를 받아 솔루션을 생성하고 DB에 저장합니다.
     
+    Args:
+        request_data: 분석 결과를 포함한 요청 DTO
+    
+    Returns:
+        저장된 SolutionResult 객체
+    
+    Raises:
+        Http404: 해당하는 SpeakerSegment가 없는 경우
+    """
     # 1. [Logic] 솔루션 생성기 실행
     generator = SolutionGenerator()
     guide = generator.generate_guide(request_data)

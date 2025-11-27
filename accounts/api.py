@@ -7,8 +7,7 @@ from django.db import transaction
 from django.contrib.auth import authenticate
 
 from ninja.errors import HttpError
-from ninja_jwt.tokens import RefreshToken
-from ninja_jwt.authentication import JWTAuth
+from .jwt_auth import RefreshToken, JWTAuth
 from .schemas import UserInfoSchema, UserSignupSchema, UserLoginSchema, LoginResponseSchema, CompanyCreateSchema, DepartmentCreateSchema
 
 from .models import User, Company, Department

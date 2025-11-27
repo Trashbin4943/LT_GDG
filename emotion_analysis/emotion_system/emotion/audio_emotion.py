@@ -1,29 +1,43 @@
-'''
-LSTM 기반 음향 감정 분석
-음향 특징 벡터 (MFCC, pitch, energy 등)를 입력받아 
-감정라벨을 출력합니다.
-'''
-
 import torch
 import torch.nn as nn
 from .label_map import label_map
 
-class SimpleLSTM(nn.Module):
-    def __init__(self, input_dim, num_classes):
+class CNNEmotionModel(nn.Module):
+    def __init__(self, num_classes=7):  # 체크포인트는 7 클래스 기준
         super().__init__()
-        self.lstm = nn.LSTM(input_dim, 64, batch_first=True)
-        self.fc = nn.Linear(64, num_classes)
+        self.conv1 = nn.Conv2d(1, 20, kernel_size=(3, 3), padding=1)
+        self.conv2 = nn.Conv2d(20, 20, kernel_size=(3, 3), padding=1)
+        self.conv3 = nn.Conv2d(20, 20, kernel_size=(3, 3), padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.relu = nn.ReLU()
+
+        # fc 레이어는 첫 forward에서 자동 초기화
+        self.fc1 = None
+        self.fc2 = None
+        self.fc3 = None
+        self.num_classes = num_classes
+
+    def _initialize_fc_layers(self, x):
+        """첫 forward에서 fc 레이어 크기를 자동으로 설정"""
+        flatten_dim = x.view(x.size(0), -1).size(1)
+        self.fc1 = nn.Linear(flatten_dim, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, self.num_classes)
 
     def forward(self, x):
-        _, (hn, _) = self.lstm(x)
-        return self.fc(hn.squeeze(0))
+        x = x.unsqueeze(1)  # [batch, 1, height, width]
+        x = self.relu(self.conv1(x))
+        x = self.pool(x)
+        x = self.relu(self.conv2(x))
+        x = self.pool(x)
+        x = self.relu(self.conv3(x))
+        x = self.pool(x)
 
-def classify_audio_emotion(features, weights_path="./audio_emotion_model.pth"):
-    model = SimpleLSTM(input_dim=features.shape[2], num_classes=len(label_map))
-    model.load_state_dict(torch.load(weights_path, map_location="cpu"))
-    model.eval()
-    with torch.no_grad():
-        x = torch.tensor(features, dtype=torch.float32)
-        logits = model(x)
-        label = torch.argmax(logits, dim=1).item()
-        return label_map[label]
+        if self.fc1 is None:
+            # 첫 forward에서 fc 레이어 초기화
+            self._initialize_fc_layers(x)
+
+        x = x.view(x.size(0), -1)
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        return self.fc3(x)
