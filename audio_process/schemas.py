@@ -1,7 +1,6 @@
 from ninja import Router, File, UploadedFile, Schema
 from django.shortcuts import get_object_or_404
 from .models import CallRecording, SpeakerSegment
-from ninja_jwt.authentication import JWTAuth
 from datetime import date, datetime
 
 class RecordingUploadResponse(Schema):

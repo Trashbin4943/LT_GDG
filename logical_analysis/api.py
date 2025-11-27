@@ -5,11 +5,11 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.db.models import Count
 from datetime import datetime
-from ninja_jwt.authentication import JWTAuth
+from accounts.jwt_auth import JWTAuth
 
 from audio_process.models import CallRecording, SpeakerSegment
-from .models import ClassificationResult
-from .schemas import AnalyzeRequest, AnalysisSessionOut, ClassificationResultOut, SessionAnalysisRequest
+from .models import CustomerAnalysisResult
+from .schemas import SessionAnalysisRequest
 from .services import analyze_and_save_customer_turns, analyze_from_db_segments
 
 router = Router()
@@ -18,17 +18,12 @@ router = Router()
 @router.post("/analyze/customer", summary="고객 발화 분석 및 저장", auth=JWTAuth())
 def analyze_customer_session(
     request, 
-    payload: SessionAnalysisRequest,
-    auto_generate_solution: bool = True,  # 자동 솔루션 생성 여부
-    skip_existing: bool = False  # 기존 분석 결과 스킵 여부
+    payload = None,
+    auto_generate_solution: bool = True,
+    skip_existing: bool = False
 ):
     """
     [POST] 세션 STT 데이터를 입력받아 고객 발화만 분석하고 저장합니다.
-    (상담원 발화 데이터가 포함되어 있어도 무시하거나 저장하지 않습니다.)
-    
-    Args:
-        auto_generate_solution: 분석 완료 후 솔루션 자동 생성 여부 (기본: True)
-        skip_existing: 기존 분석 결과가 있으면 스킵 여부 (기본: False)
     """
     try:
         result = analyze_and_save_customer_turns(
@@ -38,10 +33,7 @@ def analyze_customer_session(
         )
         return result
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 
 @router.post("/analyze/customer/{session_id}", summary="DB에서 고객 발화 분석 및 저장", auth=JWTAuth())
@@ -53,12 +45,6 @@ def analyze_customer_session_from_db(
 ):
     """
     [POST] session_id를 받아서 DB의 SpeakerSegment에서 직접 데이터를 읽어 분석합니다.
-    emotion_system과 통일된 방식으로 데이터를 처리합니다.
-    
-    Args:
-        session_id: 세션 ID
-        auto_generate_solution: 솔루션 자동 생성 여부
-        skip_existing: 기존 분석 결과 스킵 여부
     """
     recording = get_object_or_404(CallRecording, session_id=session_id, uploader=request.user)
     
@@ -70,47 +56,38 @@ def analyze_customer_session_from_db(
         )
         return result
     except Exception as e:
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 
-@router.get("/{session_id}", response=AnalysisSessionOut)
+@router.get("/{session_id}")
 def get_analysis_result(request, session_id: str):
-
+    """세션별 논리 분석 결과 조회"""
     recording = get_object_or_404(CallRecording, session_id=session_id)
-    segments = recording.segments.select_related('logical_analysis').all().order_by('start_time')
+    segments = recording.segments.select_related('customer_analysis').all().order_by('turn_index')
     
     output_results = []
     valid_results = []
     
     for seg in segments:
-        if hasattr(seg, 'logical_analysis'):
-            res = seg.logical_analysis
+        if hasattr(seg, 'customer_analysis'):
+            res = seg.customer_analysis
             valid_results.append(res)
             
             output_results.append({
                 "text": seg.text,
                 "label": res.label,
                 "label_type": res.label_type,
-                "confidence": res.confidence,
-                "probabilities": res.probabilities,
-                "action": res.action,
-                "alert_level": res.alert_level,
-                "timestamp": res.timestamp,
-                "created_at": res.created_at
+                "confidence": res.classification_confidence,
+                "probabilities": res.classification_probabilities,
+                "risk_score": res.score_risk,
+                "analyzed_at": res.analyzed_at,
             })
 
     total_count = len(valid_results)
-    risk_count = sum(1 for r in valid_results if r.alert_level in ['HIGH', 'CRITICAL'])
+    risk_count = sum(1 for r in valid_results if r.score_risk > 0.7)
     
-    alert_levels = {r.alert_level for r in valid_results}
-    if 'CRITICAL' in alert_levels: highest = 'CRITICAL'
-    elif 'HIGH' in alert_levels: highest = 'HIGH'
-    elif 'MEDIUM' in alert_levels: highest = 'MEDIUM'
-    else: highest = 'LOW'
-
+    highest_risk = max([r.score_risk for r in valid_results], default=0.0)
+    
     most_common_label = "None"
     if total_count > 0:
         from collections import Counter
@@ -119,13 +96,13 @@ def get_analysis_result(request, session_id: str):
 
     summary_data = {
         "total_sentences": total_count,
-        "risk_score": risk_count,
-        "highest_alert": highest,
-        "primary_intent": most_common_label
+        "risk_count": risk_count,
+        "highest_risk_score": highest_risk,
+        "primary_label": most_common_label
     }
 
     return {
-        "session_id": recording.session_id,
+        "session_id": str(recording.session_id),
         "created_at": recording.created_at,
         "summary": summary_data,
         "results": output_results
