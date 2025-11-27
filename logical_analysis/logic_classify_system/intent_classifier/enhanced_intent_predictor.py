@@ -82,6 +82,11 @@ class EnhancedIntentPredictor:
         Returns:
             ClassificationResult (intensity 정보 포함)
         """
+        # ==========================================
+        # 모든 손님 발화에 대해 일관적으로 모델 실행
+        # Special Label 여부와 관계없이 intensity 정보 수집
+        # ==========================================
+        
         # Special Label 감지 요인 수집
         special_factors = []
         
@@ -89,7 +94,8 @@ class EnhancedIntentPredictor:
         if profanity_detected:
             special_factors.append(("PROFANITY", profanity_confidence))
         
-        # 2. Intensity Regression 모델 예측
+        # 2. Intensity Regression 모델 예측 (모든 발화에 대해 실행)
+        # 0.0 ~ 3.0 범위의 float 값 리턴
         intensity_result = None
         if self.intensity_model and self.intensity_model.is_available():
             try:
@@ -119,23 +125,28 @@ class EnhancedIntentPredictor:
         baseline_results = self.baseline_rules.detect_special_labels(text, session_context)
         special_factors.extend(baseline_results)
         
-        # 4. 3진 분류 모델 예측
+        # 4. 4진 분류 모델 예측 (모든 발화에 대해 실행)
+        # 0, 1, 2, 3의 index -> LOW, MEDIUM, HIGH, VERY_HIGH
         ternary_result = None
         if self.ternary_model and self.ternary_model.is_available():
             try:
                 ternary_result = self.ternary_model.predict(text)
                 
-                # HIGH 단계인 경우 Special Label 가능성 추가
-                if ternary_result['intensity_level'] == 'HIGH':
+                # HIGH 또는 VERY_HIGH 단계인 경우 Special Label 가능성 추가
+                if ternary_result['intensity_level'] == 'VERY_HIGH':
                     special_factors.append(
-                        ("TERNARY_HIGH", ternary_result['intensity_level_confidence'])
+                        ("TERNARY_VERY_HIGH", ternary_result['intensity_level_confidence'])
+                    )
+                elif ternary_result['intensity_level'] == 'HIGH':
+                    special_factors.append(
+                        ("TERNARY_HIGH", ternary_result['intensity_level_confidence'] * 0.9)
                     )
                 elif ternary_result['intensity_level'] == 'MEDIUM':
                     special_factors.append(
                         ("TERNARY_MEDIUM", ternary_result['intensity_level_confidence'] * 0.7)
                     )
             except Exception as e:
-                warnings.warn(f"3진 분류 모델 예측 실패: {e}")
+                warnings.warn(f"4진 분류 모델 예측 실패: {e}")
         
         # Special Label 요인들이 있는 경우
         if special_factors:
@@ -196,7 +207,8 @@ class EnhancedIntentPredictor:
             timestamp=datetime.now()
         )
         
-        # Intensity 정보 추가 (Normal이어도 intensity는 측정)
+        # Intensity 정보 추가 (모든 발화에 대해 일관적으로 수집)
+        # Special Label이 아닌 경우에도 intensity 정보는 항상 포함됨
         if intensity_result:
             classification_result.intensity = intensity_result['intensity']
             classification_result.is_immoral = intensity_result['is_immoral']

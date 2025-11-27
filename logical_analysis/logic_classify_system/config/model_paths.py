@@ -9,8 +9,13 @@ from typing import Optional
 
 
 # 프로젝트 루트 기준 모델 디렉토리
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
-_MODELS_BASE_DIR = _PROJECT_ROOT / "logical_analysis" / "logic_classify_system" / "models" / "checkpoints"
+# model_paths.py 위치: logical_analysis/logic_classify_system/config/model_paths.py
+# parent 1: logical_analysis/logic_classify_system/config
+# parent 2: logical_analysis/logic_classify_system
+# parent 3: logical_analysis (이것이 _PROJECT_ROOT)
+# 따라서 _PROJECT_ROOT는 logical_analysis 디렉토리
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+_MODELS_BASE_DIR = _PROJECT_ROOT / "logic_classify_system" / "models" / "checkpoints"
 
 # 모델 디렉토리 구조
 INTENSITY_MODEL_DIR = _MODELS_BASE_DIR / "intensity_regression" / "intensity_model"
@@ -57,7 +62,6 @@ def get_intensity_model_path() -> Optional[str]:
     우선순위:
     1. 환경 변수 (INTENSITY_MODEL_PATH)
     2. 프로젝트 내부 경로 (models/checkpoints/intensity_regression/intensity_model)
-    3. 외부 경로 (하위 호환성, G:/내 드라이브/...)
     
     Returns:
         모델 경로 (존재하는 경우) 또는 None
@@ -72,15 +76,7 @@ def get_intensity_model_path() -> Optional[str]:
     if project_path:
         return str(project_path)
     
-    # 3. 외부 경로 확인 (하위 호환성)
-    external_path = Path("G:/내 드라이브/kobert_immorality_MSE_checkpoints/checkpoint-68000")
-    if external_path.exists():
-        return str(external_path)
-    # 새로운 이름으로도 확인
-    external_path_new = Path("G:/내 드라이브/kobert_immorality_MSE_checkpoints/intensity_model")
-    if external_path_new.exists():
-        return str(external_path_new)
-    
+    # 모델 경로를 찾을 수 없음
     return None
 
 
@@ -91,7 +87,6 @@ def get_ternary_model_path() -> Optional[str]:
     우선순위:
     1. 환경 변수 (TERNARY_MODEL_PATH)
     2. 프로젝트 내부 경로 (models/checkpoints/ternary_classification/ternary_model)
-    3. 외부 경로 (하위 호환성, G:/내 드라이브/...)
     
     Returns:
         모델 경로 (존재하는 경우) 또는 None
@@ -106,15 +101,7 @@ def get_ternary_model_path() -> Optional[str]:
     if project_path:
         return str(project_path)
     
-    # 3. 외부 경로 확인 (하위 호환성)
-    external_path = Path("G:/내 드라이브/kobert_immorality_checkpoints_1/checkpoint-80000")
-    if external_path.exists():
-        return str(external_path)
-    # 새로운 이름으로도 확인
-    external_path_new = Path("G:/내 드라이브/kobert_immorality_checkpoints_1/ternary_model")
-    if external_path_new.exists():
-        return str(external_path_new)
-    
+    # 모델 경로를 찾을 수 없음
     return None
 
 

@@ -108,7 +108,7 @@ def get_analysis_result(request, session_id: str):
     summary_data = {
         "total_sentences": total_count,
         "risk_count": risk_count,
-        "highest_risk_score": highest_risk,
+        "highest_risk_score": highest,
         "primary_label": most_common_label
     }
 
