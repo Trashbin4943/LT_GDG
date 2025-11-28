@@ -63,15 +63,28 @@ def analyze_customer_session_from_db(
 def get_analysis_result(request, session_id: str):
     """세션별 논리 분석 결과 조회"""
     recording = get_object_or_404(CallRecording, session_id=session_id)
+    # customer_analysis를 select_related로 프리페치
     segments = recording.segments.select_related('customer_analysis').all().order_by('start_time')
     
     output_results = []
     valid_results = []
+    total_risk_score = 0.0 # 평균 리스크 계산용
     
     for seg in segments:
         if hasattr(seg, 'customer_analysis'):
             res = seg.customer_analysis
             valid_results.append(res)
+            total_risk_score += res.score_risk # 리스크 점수 합산
+            
+            # 1. 상세 점수 (FeatureScores) 객체 생성
+            feature_scores_data = {
+                "profanity_score": res.score_profanity,
+                "threat_score": res.score_threat,
+                "unreasonable_demand_score": res.score_unreasonable_demand,
+                "sexual_harassment_score": res.score_sexual_harassment,
+                "hate_speech_score": res.score_hate_speech,
+                "repetition_keyword_score": res.score_repetition,
+            }
             
             output_results.append({
                 "text": seg.text,
@@ -79,25 +92,29 @@ def get_analysis_result(request, session_id: str):
                 "label_type": res.label_type,
                 "classification_confidence": res.classification_confidence,
                 "probabilities": res.classification_probabilities,
-
                 "score_risk":res.score_risk,
                 "is_profanity": res.is_profanity,
-
-                "timestamp": res.timestamp,
-                "created_at": res.created_at
+                "profanity_category": res.profanity_category, 
+                "profanity_method": res.profanity_method, 
+                
+                "feature_scores": feature_scores_data, 
+                "extracted_features": res.extracted_features, 
+                
+                "timestamp": seg.start_time, # seg에서 가져옴 (시간 정보)
+                "created_at": res.analyzed_at # res에서 가져옴 (분석 시각)
             })
 
     total_count = len(valid_results)
-    risk_count = sum(1 for r in valid_results 
-                     if r.label_type=='SPECIAL' or r.score_risk >= 0.6)
+    avg_risk_score = (total_risk_score / total_count) if total_count > 0 else 0.0
     
-    highest = 'LOW'
+    # 리스크 레벨 계산 로직은 유지
+    highest_alert = 'LOW'
     if any(r.score_risk >= 0.8 for r in valid_results):
-        highest = 'CRITICAL'
+        highest_alert = 'CRITICAL'
     elif any(r.score_risk >= 0.6 for r in valid_results):
-        highest = 'HIGH'
+        highest_alert = 'HIGH'
     elif any(r.label_type == 'SPECIAL' for r in valid_results):
-        highest = 'MEDIUM'
+        highest_alert = 'MEDIUM'
 
     most_common_label = "None"
     if total_count > 0:
@@ -107,9 +124,9 @@ def get_analysis_result(request, session_id: str):
 
     summary_data = {
         "total_sentences": total_count,
-        "risk_count": risk_count,
-        "highest_risk_score": highest,
-        "primary_label": most_common_label
+        "risk_score": round(avg_risk_score, 4), 
+        "highest_alert": highest_alert, 
+        "primary_intent": most_common_label 
     }
 
     return {

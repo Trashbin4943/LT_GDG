@@ -94,10 +94,11 @@ class UnifiedEmotionAnalyzer:
 
         # 오디오 모델 로딩
         if os.path.exists(audio_weights_path):
+            print("model.pth 파일 탐색 성공!")
             self.audio_model = CNNEmotionModel(num_classes=7)
             self.audio_model.load_state_dict(
                 torch.load(audio_weights_path, map_location="cpu"),
-                strict=False  # 일부 mismatch 허용
+                strict=False
             )
             self.audio_model.eval()
         else:
@@ -152,8 +153,8 @@ class UnifiedEmotionAnalyzer:
 
         return {
             "type": "audio",
-            "sentiment": sentiment_category,  # 최종 단순화된 감정
-            "raw_label": raw_label            # CNN 원래 라벨
+            "sentiment": sentiment_category,
+            "raw_label": raw_label
         }
 
     def analyze_turn(self, turn: Turn):
