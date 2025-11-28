@@ -52,9 +52,14 @@ class IntensityRegressionModel:
             return
         
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_path))
+            # 커스텀 토크나이저를 사용하므로 trust_remote_code=True 필요
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                str(self.model_path),
+                trust_remote_code=True
+            )
             self.model = AutoModelForSequenceClassification.from_pretrained(
-                str(self.model_path)
+                str(self.model_path),
+                trust_remote_code=True
             )
             self.model.to(self.device)
             self.model.eval()

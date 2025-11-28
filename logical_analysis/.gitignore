@@ -38,7 +38,9 @@ env/
 **/models/**/pytorch_model.bin
 **/models/**/model.bin
 **/models/**/*.ckpt
-**/models/**/checkpoint*/
+# Checkpoint 디렉토리 패턴 (하지만 checkpoints는 별도 처리)
+**/models/**/checkpoint-*/
+**/models/**/checkpoint_*/
 **/checkpoints/**/*.bin
 **/checkpoints/**/pytorch_model.bin
 **/checkpoints/**/*.ckpt
@@ -52,9 +54,24 @@ env/
 **/models/aihub/base_model/pytorch_model.bin
 **/models/aihub/base_model/*.bin
 
-# Checkpoints (전체 디렉토리 제외)
-**/models/checkpoints/
-**/checkpoints/
+# Checkpoints - 큰 파일만 제외, 설정 파일은 추적
+**/models/checkpoints/**/*.safetensors
+**/models/checkpoints/**/*.bin
+**/models/checkpoints/**/*.model
+**/models/checkpoints/**/vocab.txt
+**/models/checkpoints/**/*.pt
+**/models/checkpoints/**/*.pth
+**/models/checkpoints/**/optimizer.pt
+**/models/checkpoints/**/rng_state.pth
+**/models/checkpoints/**/scaler.pt
+**/models/checkpoints/**/scheduler.pt
+**/models/checkpoints/**/trainer_state.json
+**/models/checkpoints/**/training_args.bin
+# 설정 파일은 추적 (예외 규칙)
+!**/models/checkpoints/**/config.json
+!**/models/checkpoints/**/tokenizer_config.json
+!**/models/checkpoints/**/tokenization_*.py
+!**/models/checkpoints/**/README.md
 
 # 기타 모델 관련
 *.pt

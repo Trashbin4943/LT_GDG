@@ -1,0 +1,33 @@
+[
+  {
+    "speaker": "customer",
+    "text": "안녕하세요. 문의드릴게 있어서 연락드렸습니다.",
+    "start": 0.0,
+    "end": 3.5
+  },
+  {
+    "speaker": "agent",
+    "text": "네, 안녕하세요. 무엇을 도와드릴까요?",
+    "start": 3.5,
+    "end": 6.0
+  },
+  {
+    "speaker": "customer",
+    "text": "시발놈아! 이게 뭐야? 제대로 처리 안 해주면 고소할 거야!",
+    "start": 6.0,
+    "end": 10.0
+  },
+  {
+    "speaker": "agent",
+    "text": "죄송합니다. 차분히 말씀해 주시면 도와드리겠습니다.",
+    "start": 10.0,
+    "end": 13.0
+  },
+  {
+    "speaker": "customer",
+    "text": "죽여버릴거야! 너희 회사 망하게 해줄게!",
+    "start": 13.0,
+    "end": 16.0
+  }
+]
+
