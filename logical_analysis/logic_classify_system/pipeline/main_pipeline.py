@@ -326,6 +326,8 @@ class MainPipeline:
             profanity_confidence=profanity_result.confidence if profanity_result else 0.0  # logic: 추가
         )
 
+        print(f"결과: {classification_result}")
+
         # 최종 risk_score 보정 (10:34)
         classification_result = self._finalize_risk_score(classification_result, profanity_result)
         
@@ -367,3 +369,36 @@ class MainPipeline:
         )
         
         return router_result
+
+    def process_single_sentence_two_stage(self, text: str, session_id: str) -> ClassificationResult:
+        """
+        단일 문장에 대해 2-Stage 분석 + 최종 스코어링 수행
+        """
+        
+        # 1. [Stage 1] 욕설 탐지 및 Baseline 분류
+        profanity_result = self.profanity_detector.detect(text)
+        
+        baseline_result = self.baseline_session.validate(
+            text=text,
+            session_context=self.session_manager.get_context(session_id),
+            profanity_detected=profanity_result.is_profanity if profanity_result else False,
+            profanity_category=profanity_result.category if profanity_result else None,
+            profanity_confidence=profanity_result.confidence if profanity_result else 0.0
+        )
+        
+        validated_result = self.intensity_session.validate(baseline_result)
+    
+
+        # 3. [Stage 3] Final Score 계산 (여기가 핵심)
+        # final_score_session이 계산한 스코어 딕셔너리를 받습니다.
+        final_scores = self.final_score_session.calculate_final_scores(
+            classification_result=validated_result,
+            text=text
+        )
+        
+        final_result = self.final_score_session.apply_final_scores_to_result(
+            classification_result=validated_result,
+            final_scores=final_scores
+        )
+
+        return final_result

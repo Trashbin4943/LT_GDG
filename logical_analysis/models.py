@@ -40,6 +40,11 @@ class CustomerAnalysisResult(models.Model):
     
     analyzed_at = models.DateTimeField(default=timezone.now)
 
+    intensity = models.FloatField(null=True, blank=True, help_text="감정/발화 강도 (0.0~3.0)")
+    intensity_level = models.CharField(max_length=20, null=True, blank=True, help_text="LOW, MEDIUM, HIGH")
+    is_immoral = models.BooleanField(default=False, help_text="비도덕적/모욕적 발언 여부")
+    immorality_confidence = models.FloatField(null=True, blank=True, help_text="비도덕성 판단 신뢰도")
+
     class Meta:
         verbose_name = "고객 분석 결과"
         db_table = "customer_analysis_results"

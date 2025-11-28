@@ -24,9 +24,12 @@ from ..config.labels import (
 try:
     from ..filtering.special_label_filter import SpecialLabelFilter
     from ..profanity_filter.profanity_detector import ProfanityDetector
-except ImportError:
+
+except ImportError as e:
+    print(f"import 중 에러 발생: {e}")
     SpecialLabelFilter = None
     ProfanityDetector = None
+
 
 logger = logging.getLogger(__name__)
 

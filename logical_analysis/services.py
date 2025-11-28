@@ -56,7 +56,7 @@ def analyze_and_save_customer_turns(
             intensity_model_path=get_intensity_model_path(),
             ternary_model_path=get_ternary_model_path(),
             use_enhanced_predictor=True,
-            use_two_stage_session=False
+            use_two_stage_session=True
         )
     except Exception as e:
         raise ValueError(f"AI 모델 로딩 실패: {str(e)}")
@@ -92,45 +92,102 @@ def analyze_and_save_customer_turns(
         if db_text_clean[:10] != input_text_clean[:10]:
             print(f"[데이터 불일치] ID:{segment_id} 스킵 (DB: {segment.text[:10]}... vs Input: {input_text[:10]}...)")
             continue
-
         try:
             fake_session_id = str(uuid.uuid4())
 
-            ai_result = pipeline.process_single_sentence(segment.text, fake_session_id)
+
+            # [Process Single Sentence 로직]
+            # ai_result = pipeline.process_single_sentence(segment.text, fake_session_id)
             
-            final_risk_score = _safe_get_score(ai_result, 'score_risk')
+
+            # intensity_val = ai_result.intensity if ai_result.intensity is not None else 0.0
+            # is_immoral_val = ai_result.is_immoral if ai_result.is_immoral is not None else False
+            # prob_val = ai_result.probabilities if ai_result.probabilities else {}
+
+            # if not ai_result.intensity or not ai_result.is_immoral or not ai_result.probabilities:
+            #     print("AI 논리분석 결과 추출 오류 발생: services.py.analysze_and_save_customer_returns")
+            #     print(f"ai_result.intensity= {ai_result.intensity}")
+            #     print(f"ai_result.is_immoral= {ai_result.is_immoral}")
+            #     print(f"ai_result.probabilities= {ai_result.probabilities}")
+
+            # final_is_profanity = (
+            #     score_risk >= 0.7 or
+            #     ai_result.label == 'PROFANITY' or
+            #     (is_immoral_val and ai_result.intensity_level == "HIGH")
+            # )
+
+            ai_result = pipeline.process_single_sentence_two_stage(segment.text, fake_session_id)
+            print(f"DEBUG Check - Text: {segment.text[:10]}... | Intensity: {getattr(ai_result, 'intensity', 'None')} | Immoral: {getattr(ai_result, 'is_immoral', 'None')}")
+            scores = getattr(ai_result, 'final_scores', {})
+
+            extended_probs = ai_result.probabilities or {}
+            extended_probs.update({
+                "metadata_intensity": getattr(ai_result, 'intensity', 0.0),
+                "metadata_intensity_level": getattr(ai_result, 'intensity_level', 'LOW'),
+                "metadata_is_immoral": getattr(ai_result, 'is_immoral', False),
+                "metadata_immorality_confidence": getattr(ai_result, 'immorality_confidence', 0.0)
+            })
+
+            final_risk_score = calculate_dynamic_risk_score(ai_result)
+
+            print(f"리스크 점수: {scores}")
 
             CustomerAnalysisResult.objects.create(
                 segment=segment,
+
                 label=ai_result.label,
                 label_type=ai_result.label_type,
                 classification_confidence=ai_result.confidence,
-                classification_probabilities=ai_result.probabilities or {},
-                
-                score_risk=final_risk_score,
-                score_profanity=_safe_get_score(ai_result, 'score_profanity'),
-                score_threat=_safe_get_score(ai_result, 'score_threat'),
-                score_unreasonable_demand=_safe_get_score(ai_result, 'score_unreasonable_demand'),
-                score_sexual_harassment=_safe_get_score(ai_result, 'score_sexual_harassment'),
-                score_hate_speech=_safe_get_score(ai_result, 'score_hate_speech'),
-                score_repetition=_safe_get_score(ai_result, 'score_repetition'),
+                # classification_probabilities=prob_val,
+                classification_probabilities=extended_probs,
 
-                is_profanity=True if final_risk_score >= 0.7 or ai_result.label == 'PROFANITY' else False,
+                intensity=getattr(ai_result, 'intensity', 0.0),
+                intensity_level=getattr(ai_result, 'intensity_level', 'LOW'),
+                is_immoral=getattr(ai_result, 'is_immoral', False),
+                immorality_confidence=getattr(ai_result, 'immorality_confidence', 0.0),
+                
+                score_risk = final_risk_score,
+                score_profanity=getattr(ai_result, 'score_profanity', 0.0),
+                score_threat=getattr(ai_result, 'score_threat', 0.0),
+                score_unreasonable_demand=scores.get('unreasonable_demand_score', 0.0),
+                score_sexual_harassment=scores.get('sexual_harassment_score', 0.0),
+                score_hate_speech=scores.get('hate_speech_score', 0.0),
+                score_repetition=scores.get('repetition_score', 0.0),
+
+                is_profanity=(scores.get('risk_score', 0.0) >= 0.3),
+
+                
+                # is_profanity = final_is_profanity,
+
+
+                # intensity = intensity_val,
+                # intensity_level = ai_result.intensity_level,
+                # is_immoral = is_immoral_val,
+                # immorality_confidence=ai_result.immorality_confidence,
+
+                # score_risk=final_risk_score,
+                # score_profanity=_safe_get_score(ai_result, 'score_profanity'),
+                # score_threat=_safe_get_score(ai_result, 'score_threat'),
+                # score_unreasonable_demand=_safe_get_score(ai_result, 'score_unreasonable_demand'),
+                # score_sexual_harassment=_safe_get_score(ai_result, 'score_sexual_harassment'),
+                # score_hate_speech=_safe_get_score(ai_result, 'score_hate_speech'),
+                # score_repetition=_safe_get_score(ai_result, 'score_repetition'),
+
+                
                 analyzed_at=timezone.now()
             )
             
-            if auto_generate_solution and generate_solution_from_analysis:
-                try:
-                    emotion = segment.emotion_label or "중립"
-                    generate_solution_from_analysis(segment, emotion)
-                except Exception:
-                    pass
+            # if auto_generate_solution and generate_solution_from_analysis:
+            #     try:
+            #         emotion = segment.emotion_label or "중립"
+            #         generate_solution_from_analysis(segment, emotion)
+            #     except Exception:
+            #         pass
 
-            saved_count += 1
+            # saved_count += 1
             
-            if hasattr(pipeline, 'session_manager'):
-                 pipeline.session_manager.clear_session(fake_session_id)
-
+            # if hasattr(pipeline, 'session_manager'):
+            #      pipeline.session_manager.clear_session(fake_session_id)
 
         except Exception as e:
             print(f"분석 중 에러 (ID {segment_id}): {e}")
@@ -171,3 +228,25 @@ def _convert_segments_to_request(recording: CallRecording) -> SessionAnalysisReq
 def analyze_from_db_segments(recording: CallRecording, auto_generate_solution: bool = True, skip_existing: bool = False):
     request_data = _convert_segments_to_request(recording)
     return analyze_and_save_customer_turns(request_data, auto_generate_solution=auto_generate_solution, skip_existing=skip_existing)
+
+def calculate_dynamic_risk_score(ai_result):
+    # 1. Label별 기본 위험도 (Base Score)
+    base_score_map = {
+        'THREAT': 0.9,            # 위협
+        'SEXUAL_HARASSMENT': 0.9, # 성희롱
+        'HATE_SPEECH': 0.8,       # 혐오 발언
+        'PROFANITY': 0.7,         # 욕설
+        'UNREASONABLE_DEMAND': 0.5, # 무리한 요구
+        'COMPLAINT': 0.3,         # 불만
+        'NORMAL': 0.0             # 일반
+    }
+    base_score = base_score_map.get(ai_result.label, 0.0)
+
+    intensity_val = ai_result.intensity if ai_result.intensity else 0.0
+    intensity_boost = min(intensity_val * 0.1, 0.3)
+
+    immorality_boost = 0.15 if ai_result.is_immoral else 0.0
+
+    total_risk = base_score + intensity_boost + immorality_boost
+
+    return min(round(total_risk, 4), 1.0)

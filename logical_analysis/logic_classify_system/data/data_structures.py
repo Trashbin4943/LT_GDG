@@ -30,9 +30,6 @@ class ClassificationResult:
     probabilities: Optional[Dict[str, float]] = None  # 각 Label별 확률 (HEAD: 유지)
     timestamp: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None  # logic: 추가
-    
-    # [NEW] Intensity 정보 (이중 모델 통합)
-    # 윤리검증 데이터셋 기반: intensity 범위 0.0 ~ 3.0
     intensity: Optional[float] = None  # 0.0 ~ 3.0 (Intensity Regression 모델 결과)
     intensity_level: Optional[str] = None  # "LOW", "MEDIUM", "HIGH" (3진 분류 모델 결과)
     # 3진 분류 구간: LOW(1.0~1.6), MEDIUM(1.8~2.4), HIGH(2.6~3.0)

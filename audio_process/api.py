@@ -96,7 +96,7 @@ def get_recording_detail(request, session_id: str):
     
     audio_url = recording.audio_file.url if recording.audio_file else None
     
-    segments = recording.segments.all().order_by('turn_index')
+    segments = recording.segments.select_related('customer_analysis').all().order_by('turn_index')
     
     result_segments = []
     
@@ -114,7 +114,11 @@ def get_recording_detail(request, session_id: str):
             "logical_type": None,
             "risk_score": 0.0,
             "is_profanity": False,
-            "profanity_category": None
+            "profanity_category": None,
+            "intensity": 0.0,
+            "intensity_level": "LOW",
+            "is_immoral": False,
+            "immorality_confidence": 0.0
         }
         
         if hasattr(seg, 'customer_analysis'):
@@ -124,7 +128,12 @@ def get_recording_detail(request, session_id: str):
                 "logical_type": analysis.label_type,
                 "risk_score": analysis.score_risk,
                 "is_profanity": analysis.is_profanity,
-                "profanity_category": analysis.profanity_category
+                "profanity_category": analysis.profanity_category,
+                
+                "intensity": analysis.intensity or 0.0,
+                "intensity_level": analysis.intensity_level or "LOW",
+                "is_immoral":analysis.is_immoral or False,
+                "immorality_confidence":analysis.immorality_confidence or 0.0
             })
             
         result_segments.append(seg_data)

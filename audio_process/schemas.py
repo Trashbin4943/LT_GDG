@@ -35,6 +35,16 @@ class SpeakerSegmentSchema(Schema):
     is_profanity: bool | None = None       # 욕설 여부
 
     profanity_category: str | None = None
+    profanity_method: str | None = None
+
+    intensity: float | None = None
+    intensity_level: str | None=None
+    is_immoral : bool | None=None
+    immorality_confidence : float | None=None
+
+
+
+
 
 class SegmentUpdateSchema(Schema):
     id: int
@@ -46,9 +56,7 @@ class RecordingDetailSchema(Schema):
     session_id: str
     file_name: str
     created_at: datetime
-
     audio_url: Optional[str]
-
     segments: list[SpeakerSegmentSchema]
 
 class SpeakerUpdateSchema(Schema):
