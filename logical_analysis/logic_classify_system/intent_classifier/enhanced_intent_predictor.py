@@ -108,16 +108,16 @@ class EnhancedIntentPredictor:
                     
                     # intensity가 높을수록 더 강한 Special Label 가능성
                     # intensity 범위: 0.0 ~ 3.0 (윤리검증 데이터셋 기반)
+                    # ⚠️ 낮은 intensity(intensity < 1.8)는 실제 라벨이 없으면 NORMAL일 수 있으므로
+                    # special_factors에 추가하지 않음 (다른 실제 라벨과 함께 있을 때만 고려)
                     if intensity >= 2.5:
                         # 매우 높은 intensity → 강한 Special Label
                         special_factors.append(("INTENSITY_HIGH", immorality_conf))
                     elif intensity >= 1.8:
                         # 높은 intensity → 중간 Special Label
                         special_factors.append(("INTENSITY_MEDIUM", immorality_conf * 0.8))
-                    elif intensity > 0.0:
-                        # 낮은 intensity → 약한 Special Label
-                        special_factors.append(("INTENSITY_LOW", immorality_conf * 0.6))
-                    # intensity == 0.0인 경우는 Normal Label로 처리
+                    # intensity < 1.8인 경우는 special_factors에 추가하지 않음
+                    # (실제 라벨이 있으면 intensity 정보는 ClassificationResult에만 저장됨)
             except Exception as e:
                 warnings.warn(f"Intensity 모델 예측 실패: {e}")
         
@@ -132,7 +132,8 @@ class EnhancedIntentPredictor:
             try:
                 ternary_result = self.ternary_model.predict(text)
                 
-                # HIGH 또는 VERY_HIGH 단계인 경우 Special Label 가능성 추가
+                # HIGH 또는 VERY_HIGH 단계인 경우만 Special Label 가능성 추가
+                # ⚠️ MEDIUM은 실제 라벨이 없으면 NORMAL일 수 있으므로 제외
                 if ternary_result['intensity_level'] == 'VERY_HIGH':
                     special_factors.append(
                         ("TERNARY_VERY_HIGH", ternary_result['intensity_level_confidence'])
@@ -141,35 +142,54 @@ class EnhancedIntentPredictor:
                     special_factors.append(
                         ("TERNARY_HIGH", ternary_result['intensity_level_confidence'] * 0.9)
                     )
-                elif ternary_result['intensity_level'] == 'MEDIUM':
-                    special_factors.append(
-                        ("TERNARY_MEDIUM", ternary_result['intensity_level_confidence'] * 0.7)
-                    )
+                # MEDIUM과 LOW는 special_factors에 추가하지 않음
+                # (실제 라벨이 있으면 intensity 정보는 ClassificationResult에만 저장됨)
             except Exception as e:
                 warnings.warn(f"4진 분류 모델 예측 실패: {e}")
         
-        # Special Label 요인들이 있는 경우
-        if special_factors:
-            # 가장 높은 신뢰도의 Label 선택
-            primary_label, primary_confidence = max(special_factors, key=lambda x: x[1])
+        # 실제 라벨(INTENSITY_*, TERNARY_* 제외) 확인
+        actual_labels = [
+            (label, conf) for label, conf in special_factors
+            if not label.startswith("INTENSITY_") and not label.startswith("TERNARY_")
+        ]
+        
+        # 실제 라벨이 있는 경우에만 SPECIAL로 분류
+        if actual_labels:
+            # 가장 높은 신뢰도의 실제 라벨 선택
+            primary_label, primary_confidence = max(actual_labels, key=lambda x: x[1])
             
-            # 모든 요인들을 합산하여 신뢰도 계산
-            total_confidence = sum(conf for _, conf in special_factors)
-            factor_count = len(special_factors)
-            special_label_confidence = min(
-                max(primary_confidence, total_confidence / factor_count) * (1.0 + (factor_count - 1) * 0.1),
-                1.0
-            )
+            # 실제 라벨들의 신뢰도만 사용하여 계산
+            actual_total_confidence = sum(conf for _, conf in actual_labels)
+            actual_factor_count = len(actual_labels)
             
-            # probabilities 계산
+            # 메타 라벨(INTENSITY_*, TERNARY_*)도 고려하되, 실제 라벨이 우선
+            meta_factors = [
+                (label, conf) for label, conf in special_factors
+                if label.startswith("INTENSITY_") or label.startswith("TERNARY_")
+            ]
+            
+            # 신뢰도 계산: 실제 라벨 신뢰도를 기본으로 하고, 메타 라벨은 보조적으로만 사용
+            if meta_factors:
+                meta_boost = min(sum(conf for _, conf in meta_factors) / len(meta_factors) * 0.2, 0.2)
+                special_label_confidence = min(
+                    max(primary_confidence, actual_total_confidence / actual_factor_count) + meta_boost,
+                    1.0
+                )
+            else:
+                special_label_confidence = min(
+                    max(primary_confidence, actual_total_confidence / actual_factor_count),
+                    1.0
+                )
+            
+            # probabilities 계산: 실제 라벨만 포함 (메타 라벨 제외)
             probabilities = {}
-            total_factor_confidence = sum(conf for _, conf in special_factors)
-            if total_factor_confidence > 0:
-                for label, conf in special_factors:
-                    probabilities[label] = conf / total_factor_confidence
+            total_actual_confidence = sum(conf for _, conf in actual_labels)
+            if total_actual_confidence > 0:
+                for label, conf in actual_labels:
+                    probabilities[label] = conf / total_actual_confidence
             
-            # 실제 Label 결정 (INTENSITY_*, TERNARY_* 제외)
-            actual_label = self._determine_actual_label(special_factors, intensity_result, ternary_result)
+            # 실제 Label 결정
+            actual_label = primary_label
             
             # ClassificationResult 생성 (intensity 정보 포함)
             classification_result = ClassificationResult(
@@ -228,6 +248,9 @@ class EnhancedIntentPredictor:
         """
         실제 Special Label 결정
         
+        ⚠️ 이 메서드는 더 이상 사용되지 않음 (predict 메서드에서 직접 처리)
+        호환성을 위해 유지하되, 실제 로직은 predict 메서드에 있음
+        
         Args:
             special_factors: Special Label 요인 리스트
             intensity_result: Intensity 모델 결과
@@ -247,6 +270,10 @@ class EnhancedIntentPredictor:
             return max(actual_labels, key=lambda x: x[1])[0]
         
         # 실제 Label이 없으면 intensity 기반으로 결정
+        # ⚠️ 주의: intensity만으로는 정확한 라벨 판단이 어려우므로,
+        # 실제 Label이 없는 경우는 NORMAL이어야 하지만, 
+        # 이 메서드는 SPECIAL 라벨만 반환하므로 기본값으로 PROFANITY 반환
+        # (실제로는 predict 메서드에서 실제 라벨이 없으면 NORMAL로 분류됨)
         if intensity_result and intensity_result['is_immoral']:
             intensity = intensity_result['intensity']
             # intensity 범위: 0.0 ~ 3.0 (윤리검증 데이터셋 기반)
@@ -254,10 +281,9 @@ class EnhancedIntentPredictor:
                 return "VIOLENCE_THREAT"  # 매우 높은 intensity
             elif intensity >= 1.8:
                 return "PROFANITY"  # 높은 intensity
-            elif intensity > 0.0:
-                return "UNREASONABLE_DEMAND"  # 낮은 intensity
         
-        # 기본값
+        # 기본값: 실제 Label이 없으면 PROFANITY 반환
+        # (하지만 predict 메서드에서는 실제 라벨이 없으면 NORMAL로 분류됨)
         return "PROFANITY"
     
     def get_intensity_info(self, text: str) -> dict:
