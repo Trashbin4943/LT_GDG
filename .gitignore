@@ -118,7 +118,6 @@ ipython_config.py
 
 # pdm
 #   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
 #   https://pdm.fming.dev/#use-with-ide
@@ -183,7 +182,7 @@ cython_debug/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+#  before PyInstaller builds the exed, so as to inject date/other infos into it.
 
 # Installer logs
 
@@ -278,19 +277,38 @@ linguaproject/logic_classify_system/personal/
 # Markdown files - ignore all .md files except README.md
 # Documentation in docs/ folders should be ignored (internal documentation)
 *.md
-<<<<<<< Updated upstream
-!**/docs/**/*.md
-=======
 !README.md
+# 특정 문서 파일들은 예외 처리 (프로젝트 문서)
+!API_마이그레이션_계획.md
+!변경사항_분류.md
+!모델_설치_및_설정_가이드.md
+!서버_로그_및_오류_확인_가이드.md
+!파일명_관리_체계.md
+!파일명_관리_가이드라인.md
 docs/
 
 ### Machine Learning Training & Model Files ###
-# Model weights and checkpoints
+# Model weights and checkpoints (large files)
 *.bin
+*.safetensors
 *.pt
 *.pth
 *.ckpt
-*.safetensors
+
+# Tokenizer model files (large files)
+*.model
+tokenizer_*.model
+
+# Vocabulary files (large files) - Google Drive에서 다운로드
+vocab.txt
+
+# Training-related files (not needed for inference)
+optimizer.pt
+rng_state.pth
+scaler.pt
+scheduler.pt
+trainer_state.json
+training_args.bin
 
 # Training output directories
 checkpoint-*/
@@ -304,10 +322,16 @@ logical_analysis/logic_classify_system/models/*/trained/
 logical_analysis/logic_classify_system/models/*/fine-tuned/
 logical_analysis/logic_classify_system/models/immorality_intensity/
 
-# Model checkpoints (large files, should not be committed)
+# Model checkpoints directories (large files, should not be committed)
+# But keep directory structure and small config files
 logical_analysis/logic_classify_system/models/checkpoints/*/checkpoint-*/
 !logical_analysis/logic_classify_system/models/checkpoints/.gitkeep
 !logical_analysis/logic_classify_system/models/checkpoints/README.md
+
+# Keep small config files for model checkpoints
+!logical_analysis/logic_classify_system/models/checkpoints/*/config.json
+!logical_analysis/logic_classify_system/models/checkpoints/*/tokenizer_config.json
+!logical_analysis/logic_classify_system/models/checkpoints/*/tokenization_*.py
 
 # Training logs
 logs/
@@ -351,4 +375,59 @@ kobert_*.zip
 # Jupyter notebook checkpoints (already in template, but ensuring)
 .ipynb_checkpoints/
 */.ipynb_checkpoints/
->>>>>>> Stashed changes
+
+### Local Development & Test Files ###
+# 로그 파일 (명시적으로 추가)
+server_log.txt
+*.log.txt
+
+# 디버그 스크립트
+debug_*.py
+
+# 테스트 스크립트 및 파일 (일반 테스트는 제외)
+# 단, JSON 기반 테스트 및 AI 모델 처리 로직 검증 파일은 포함
+*_test.py
+test_*.py
+*-test.py
+# 예외: JSON 기반 테스트 및 AI 모델 처리 로직 검증 파일
+!scripts/test_logic_analysis_from_json.py
+!scripts/test_api_with_model.py
+!scripts/test_model_in_server.py
+!scripts/test_enhanced_predictor_detailed.py
+!scripts/test_intensity_storage.py
+!scripts/test_mapping_issue.py
+!scripts/test_sentence_splitting.py
+!scripts/test_violence_threat_classification.py
+# 표준 테스트 디렉토리는 포함
+!*/tests/*.py
+
+# 예제 데이터 파일 (일반 예제는 제외)
+# 단, 테스트용 JSON은 포함
+*_example*.json
+segments_example*.json
+!scripts/test_segments.json
+!scripts/test_*.json
+
+# 개발 도구
+dev_tools/
+
+# scripts 디렉토리 내 특정 파일들 제외
+scripts/test_*.ps1
+scripts/test_*.sh
+scripts/*.ps1
+scripts/*.sh
+# 하지만 다음 파일들은 포함
+!scripts/copy_model_files.ps1
+
+# 자동 생성 파일
+installed_packages.txt
+pip-list.txt
+
+### Docker Files ###
+# Docker 관련 파일들 (로컬 개발용이므로 제외)
+Dockerfile.dev
+docker-compose.yml
+docker-compose.test.yml
+docker-compose.*.yml
+!docker-compose.yml.example
+!Dockerfile.example

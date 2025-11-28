@@ -1,0 +1,12 @@
+{
+  "model_max_length": 512,
+  "max_len": 512,
+  "do_lower_case": false,
+  "tokenizer_class": "KoBertTokenizer",
+  "auto_map": {
+    "AutoTokenizer": [
+      "tokenization_kobert.KoBertTokenizer",
+      "tokenization_kobert.KoBertTokenizer"
+    ]
+  }
+}

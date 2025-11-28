@@ -1,0 +1,32 @@
+# ===== Additional packages installed locally (not in requirements.txt or requirements2.txt) =====
+# These packages are used in the codebase and should be managed via Docker
+# Note: Some packages in requirements.txt are also listed here with specific versions to ensure consistency
+
+# ===== Django Extensions =====
+# Note: djangorestframework, djangorestframework-simplejwt, django-storages, boto3 may be in requirements.txt
+# Versions here take precedence for Docker builds
+djangorestframework==3.16.1
+djangorestframework-simplejwt==5.5.1
+django-storages==1.14.6
+boto3==1.41.5
+
+# ===== Deep Learning & ML (version updates from local environment) =====
+# torch==2.9.1  # Override requirements.txt version (2.8.0) - installed separately in Dockerfile
+# transformers==4.57.3  # Already in requirements.txt - version matches
+huggingface-hub==0.36.0
+onnxruntime==1.23.2
+numba==0.62.1
+
+# ===== Audio Processing (additional) =====
+av==16.0.1  # PyAV for audio processing
+# pyannote.audio==4.0.2  # Commented out - uncomment if needed (slow to install)
+
+# ===== Data Processing (version updates from local environment) =====
+pydantic==2.12.5  # Override requirements.txt version (2.4.2)
+pydantic-settings==2.12.0
+# scipy==1.16.3  # Already in requirements.txt - version matches
+# scikit-learn==1.7.2  # Already in requirements.txt - version matches
+
+# ===== Environment =====
+python-dotenv==1.2.1
+

@@ -39,18 +39,6 @@ class IntentBaselineRules:
         "책임져", "해결해줘", "처리해줘", "해결 못하면"
     ]
     
-    # logic: 추가 키워드
-    UNREASONABLE_DEMAND_KEYWORDS = [
-        "지금 당장", "바로", "즉시", "지금", "당장", "금방",
-        "지금 해줘", "바로 해줘", "당장 해줘"
-    ]
-    
-    # logic: 강요 표현
-    PRESSURE_KEYWORDS = [
-        "해야 해", "해야 한다", "안 되면", "안 하면", "시발",
-        "화나게 하지 마", "빨리", "급하다"
-    ]
-    
     # 부당성/무관성 감지 키워드 (HEAD: 유지)
     IRRELEVANCE_INDICATORS = [
         "독도에 보내달라", "돈이 없는데", "상관없는 얘기",
@@ -117,27 +105,6 @@ class IntentBaselineRules:
             elif unreasonable_count == 1:
                 # 1개만 있어도 LOW 심각도로 감지
                 confidence = 0.3
-                results.append(("UNREASONABLE_DEMAND", confidence))
-        
-        # logic: 추가 무리한 요구 감지 로직
-        unreasonable_detected = False
-        for keyword in IntentBaselineRules.UNREASONABLE_DEMAND_KEYWORDS:
-            if keyword in text_lower:
-                unreasonable_detected = True
-                break
-        
-        if unreasonable_detected:
-            # 강요 표현 확인
-            has_pressure = any(keyword in text_lower for keyword in IntentBaselineRules.PRESSURE_KEYWORDS)
-            confidence = 0.90 if has_pressure else 0.75
-            
-            # 중복 제거 (이미 추가된 경우 더 높은 신뢰도 사용)
-            existing = [r for r in results if r[0] == "UNREASONABLE_DEMAND"]
-            if existing:
-                if confidence > existing[0][1]:
-                    results = [r for r in results if r[0] != "UNREASONABLE_DEMAND"]
-                    results.append(("UNREASONABLE_DEMAND", confidence))
-            else:
                 results.append(("UNREASONABLE_DEMAND", confidence))
         
         # 3. 부당성/무관성 감지 (HEAD: 유지)

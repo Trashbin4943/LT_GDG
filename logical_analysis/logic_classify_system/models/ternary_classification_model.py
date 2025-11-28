@@ -1,6 +1,6 @@
 """
-3진 분류 모델 (checkpoint-80000)
-Intensity를 세 단계로 분류 (LOW, MEDIUM, HIGH)
+4진 분류 모델 (checkpoint-80000)
+Intensity를 네 단계로 분류 (LOW, MEDIUM, HIGH, VERY_HIGH)
 """
 
 import torch
@@ -13,31 +13,33 @@ try:
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
-    warnings.warn("transformers 라이브러리가 설치되지 않았습니다. 3진 분류 모델을 사용할 수 없습니다.")
+    warnings.warn("transformers 라이브러리가 설치되지 않았습니다. 4진 분류 모델을 사용할 수 없습니다.")
 
 
 class TernaryClassificationModel:
-    """3진 분류 모델"""
+    """4진 분류 모델 (0, 1, 2, 3 -> LOW, MEDIUM, HIGH, VERY_HIGH)"""
     
-    # Label ID 매핑
+    # Label ID 매핑 (4가지 분류)
     LABEL_MAPPING = {
         0: 'LOW',
         1: 'MEDIUM',
-        2: 'HIGH'
+        2: 'HIGH',
+        3: 'VERY_HIGH'  # 추가: index 3은 VERY_HIGH
     }
     
     # Intensity 구간 정의 (윤리검증 데이터셋 기반)
-    # 주의: 3진 분류는 intensity > 0인 경우만 적용
+    # 주의: 4진 분류는 intensity > 0인 경우만 적용
     # intensity = 0인 경우는 별도로 Normal Label로 처리
     INTENSITY_RANGES = {
-        'LOW': (1.0, 1.6),      # 낮은 비윤리 강도
-        'MEDIUM': (1.8, 2.4),   # 중간 비윤리 강도
-        'HIGH': (2.6, 3.0)      # 높은 비윤리 강도
+        'LOW': (0.0, 1.0),      # 낮은 비윤리 강도
+        'MEDIUM': (1.0, 2.0),   # 중간 비윤리 강도
+        'HIGH': (2.0, 3.0),     # 높은 비윤리 강도
+        'VERY_HIGH': (3.0, 3.0) # 매우 높은 비윤리 강도
     }
     
     def __init__(self, model_path: str, use_gpu: bool = True):
         """
-        3진 분류 모델 초기화
+        4진 분류 모델 초기화
         
         Args:
             model_path: 체크포인트 경로 (예: "models/checkpoints/ternary_classification/ternary_model")
@@ -62,27 +64,32 @@ class TernaryClassificationModel:
             return
         
         if not self.model_path.exists():
-            warnings.warn(f"3진 분류 모델 경로가 존재하지 않습니다: {self.model_path}")
+            warnings.warn(f"4진 분류 모델 경로가 존재하지 않습니다: {self.model_path}")
             self.model = None
             self.tokenizer = None
             return
         
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_path))
+            # 커스텀 토크나이저를 사용하므로 trust_remote_code=True 필요
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                str(self.model_path),
+                trust_remote_code=True
+            )
             self.model = AutoModelForSequenceClassification.from_pretrained(
-                str(self.model_path)
+                str(self.model_path),
+                trust_remote_code=True
             )
             self.model.to(self.device)
             self.model.eval()
-            print(f"✅ 3진 분류 모델 로드 완료: {self.model_path} (장치: {self.device})")
+            print(f"✅ 4진 분류 모델 로드 완료: {self.model_path} (장치: {self.device})")
         except Exception as e:
-            warnings.warn(f"3진 분류 모델 로드 실패: {e}")
+            warnings.warn(f"4진 분류 모델 로드 실패: {e}")
             self.model = None
             self.tokenizer = None
     
     def predict(self, text: str, max_length: int = 128) -> Dict[str, any]:
         """
-        3진 분류 예측
+        4진 분류 예측 (0, 1, 2, 3 -> LOW, MEDIUM, HIGH, VERY_HIGH)
         
         Args:
             text: 분석할 텍스트
@@ -90,12 +97,13 @@ class TernaryClassificationModel:
         
         Returns:
             {
-                'intensity_level': str,  # "LOW", "MEDIUM", "HIGH"
+                'intensity_level': str,  # "LOW", "MEDIUM", "HIGH", "VERY_HIGH"
                 'intensity_level_confidence': float,  # 0.0-1.0
                 'probabilities': {
                     'LOW': float,
                     'MEDIUM': float,
-                    'HIGH': float
+                    'HIGH': float,
+                    'VERY_HIGH': float
                 }
             }
         """
@@ -103,7 +111,7 @@ class TernaryClassificationModel:
             return {
                 'intensity_level': 'LOW',
                 'intensity_level_confidence': 0.0,
-                'probabilities': {'LOW': 1.0, 'MEDIUM': 0.0, 'HIGH': 0.0}
+                'probabilities': {'LOW': 1.0, 'MEDIUM': 0.0, 'HIGH': 0.0, 'VERY_HIGH': 0.0}
             }
         
         try:
@@ -146,11 +154,11 @@ class TernaryClassificationModel:
                 'probabilities': label_probs
             }
         except Exception as e:
-            warnings.warn(f"3진 분류 예측 실패: {e}")
+            warnings.warn(f"4진 분류 예측 실패: {e}")
             return {
                 'intensity_level': 'LOW',
                 'intensity_level_confidence': 0.0,
-                'probabilities': {'LOW': 1.0, 'MEDIUM': 0.0, 'HIGH': 0.0}
+                'probabilities': {'LOW': 1.0, 'MEDIUM': 0.0, 'HIGH': 0.0, 'VERY_HIGH': 0.0}
             }
     
     def is_available(self) -> bool:
