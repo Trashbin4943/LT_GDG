@@ -46,6 +46,8 @@ class JWTAuth(HttpBearer):
             
             # 사용자 획득
             user = jwt_authenticator.get_user(validated_token)
+
+            request.user = user
             
             return user
         except (InvalidToken, AuthenticationFailed) as e:

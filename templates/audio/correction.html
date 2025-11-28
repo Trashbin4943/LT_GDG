@@ -201,7 +201,7 @@
             const textValue = row.querySelector('.text-input').value;
 
             // 원본 세그먼트에서 start_time, end_time 정보 가져오기
-            const originalSeg = window.originalSegments?.find(s => s.id === id);
+            const originalSeg = window.originalSegments?.find((s) => s.id === id);
             const startTime = originalSeg?.start_time || 0.0;
             const endTime = originalSeg?.end_time || 0.0;
 
@@ -241,7 +241,7 @@
 
             // DB에서 직접 SpeakerSegment를 읽어서 분석 (통일된 방식)
             // emotion_system과 동일한 방식으로 DB에서 직접 데이터를 읽습니다
-            const logicRes = await fetch(`/api/analysis/analyze/customer/${SESSION_ID}`, {
+            const logicRes = await fetch(`/api/logic/analyze/customer/${SESSION_ID}`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
             });

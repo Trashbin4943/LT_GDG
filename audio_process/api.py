@@ -2,7 +2,8 @@ from ninja import Router, File, UploadedFile
 from django.shortcuts import get_object_or_404
 from .models import CallRecording, SpeakerSegment
 from accounts.jwt_auth import JWTAuth
-from typing import List
+from datetime import date
+from typing import List, Optional
 from .schemas import (
     RecordingListSchema, 
     RecordingDetailSchema, 
@@ -72,10 +73,15 @@ def upload_and_process(request, file: UploadedFile = File(...)):
 
 
 @router.get("/list", response=List[RecordingListSchema], auth=JWTAuth())
-def get_recording_list(request):
+def get_recording_list(request, target_date: Optional[date] = None):
     recordings = CallRecording.objects.filter(
         uploader=request.user
+
     ).order_by('-created_at')
+
+    if target_date:
+        recordings = recordings.filter(created_at__date = target_date)
+
     return recordings
 
 
