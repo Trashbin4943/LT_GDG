@@ -121,9 +121,9 @@ class IntensityValidationSession:
             - 두 모델의 결과가 불일치하는 경우 metadata에 기록
         """
         # Special label이 아닌 경우 그대로 반환
-        if classification_result.label_type != LabelType.SPECIAL.value:
-            logger.debug(f"Special label이 아니므로 intensity 검증 스킵: {classification_result.label}")
-            return classification_result
+        # if classification_result.label_type != LabelType.SPECIAL.value:
+        #     logger.debug(f"Special label이 아니므로 intensity 검증 스킵: {classification_result.label}")
+        #     return classification_result
         
         text = classification_result.text
         

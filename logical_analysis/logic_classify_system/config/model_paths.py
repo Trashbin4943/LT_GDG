@@ -8,12 +8,6 @@ from pathlib import Path
 from typing import Optional
 
 
-# 프로젝트 루트 기준 모델 디렉토리
-# model_paths.py 위치: logical_analysis/logic_classify_system/config/model_paths.py
-# parent 1: logical_analysis/logic_classify_system/config
-# parent 2: logical_analysis/logic_classify_system
-# parent 3: logical_analysis (이것이 _PROJECT_ROOT)
-# 따라서 _PROJECT_ROOT는 logical_analysis 디렉토리
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 _MODELS_BASE_DIR = _PROJECT_ROOT / "logic_classify_system" / "models" / "checkpoints"
 
@@ -21,6 +15,7 @@ _MODELS_BASE_DIR = _PROJECT_ROOT / "logic_classify_system" / "models" / "checkpo
 INTENSITY_MODEL_DIR = _MODELS_BASE_DIR / "intensity_regression" / "intensity_model"
 TERNARY_MODEL_DIR = _MODELS_BASE_DIR / "ternary_classification" / "ternary_model"
 
+print(f"{_PROJECT_ROOT}")
 
 def _get_path_from_env(env_var: str) -> Optional[Path]:
     """

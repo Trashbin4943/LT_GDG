@@ -5,6 +5,7 @@ from datetime import datetime
 
 # === 1. API Input Schema ===
 class SegmentInput(Schema):
+    id: Optional[int] = None
     speaker: str
     text: str
     start_time: Optional[float] = None
@@ -15,8 +16,7 @@ class SessionAnalysisRequest(Schema):
     """분석 요청 전체 바디"""
     session_id: str
     segments: List[SegmentInput]
-
-
+    
 # === 2. API Output Schema ===
 
 class FeatureScores(Schema):
@@ -30,7 +30,6 @@ class FeatureScores(Schema):
     model_config = ConfigDict(extra='allow')
 
 class AnalysisResultItemSchema(Schema):
-    """개별 세그먼트 분석 결과 (리스트 내부 아이템)"""
     text: str
     label: str
     label_type: str
@@ -38,11 +37,16 @@ class AnalysisResultItemSchema(Schema):
     probabilities: Optional[Dict[str, float]] = None
     
     score_risk: float = 0.0
-    
     is_profanity: bool = False
+
     profanity_category: Optional[str] = None
     profanity_method: Optional[str] = None
-    
+
+    intensity: Optional[float] = Field(None, description= "intensity level")
+    intensity_level: Optional[str] = Field(None, description="LOW, MEDIUM, HIGH")
+    is_immoral: Optional[bool] = Field(None, description="비도덕성 여부")
+    immorality_confidence: Optional[float] = Field(None, description="도덕성 검증 신뢰도")
+
     feature_scores: Optional[FeatureScores] = None
     extracted_features: Dict[str, Any] = Field(default_factory=dict)
     
@@ -50,14 +54,12 @@ class AnalysisResultItemSchema(Schema):
     created_at: Optional[datetime] = None
 
 class AnalysisSummarySchema(Schema):
-    """분석 결과 요약"""
     total_sentences: int
     risk_score: float
     highest_alert: str
     primary_intent: str
 
 class CustomerAnalysisResponseSchema(Schema):
-    """[최종 응답] 클라이언트에 전달되는 전체 구조"""
     session_id: str
     created_at: Optional[datetime] = None
     summary: AnalysisSummarySchema

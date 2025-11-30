@@ -40,7 +40,7 @@ from ..data.data_structures import (
 from ..data.session_manager import SessionManager
 from ..config.labels import PipelineMode, LabelType
 
-# logic: 선택적 import
+
 try:
     from ..labeling.label_router import LabelRouter
 except ImportError:
@@ -155,6 +155,23 @@ class MainPipeline:
         self.label_router = None
         if enable_routing and LabelRouter:
             self.label_router = LabelRouter()
+
+    def _finalize_risk_score(self, classification_result: ClassificationResult, profanity_result: Optional[ProfanityResult]) -> ClassificationResult:
+        current_score = getattr(classification_result, 'score_risk', 0.0)
+
+        profanity_score = 0.0
+        if profanity_result and profanity_result.is_profanity:
+            profanity_score = max(0.7, profanity_result.confidence)
+
+        label_score = 0.0
+        if classification_result.label_type == 'SPECIAL':
+            label_score = 0.8
+        
+        final_score = max(current_score, profanity_score, label_score)
+
+        classification_result.score_risk = round(final_score, 4)
+        
+        return classification_result
     
     def process(self, text: str, session_id: str) -> PipelineResult:
         """
@@ -286,6 +303,7 @@ class MainPipeline:
                 profanity_confidence=profanity_confidence  # logic: 추가
             )
             
+            classification_result = self._finalize_risk_score(classification_result, profanity_result)
             results.append(classification_result)
             
             # 세션 맥락 업데이트
@@ -298,73 +316,25 @@ class MainPipeline:
         )
     
     def process_single_sentence(self, sentence: str, session_id: str) -> ClassificationResult:
-        """
-        단일 문장 처리 (재설계: 두 단계 세션 구조)
+        profanity_result = self.profanity_detector.detect(sentence)
+
+        classification_result = self.intent_predictor.predict(
+            sentence,
+            profanity_result.is_profanity if profanity_result else False,
+            self.session_manager.get_context(session_id),
+            profanity_category=profanity_result.category if profanity_result else None,  # logic: 추가
+            profanity_confidence=profanity_result.confidence if profanity_result else 0.0  # logic: 추가
+        )
+
+        print(f"결과: {classification_result}")
+
+        # 최종 risk_score 보정 (10:34)
+        classification_result = self._finalize_risk_score(classification_result, profanity_result)
         
-        Args:
-            sentence: 분석할 문장
-            session_id: 세션 ID
+        # 세션 맥락 업데이트
+        self.session_manager.add_sentence(session_id, sentence)
         
-        Returns:
-            ClassificationResult
-        """
-        # 두 단계 세션 구조 사용
-        if self.use_two_stage_session:
-            # 1차: 욕설 필터링
-            profanity_result = self.profanity_detector.detect(sentence)
-            
-            profanity_detected = profanity_result.is_profanity if profanity_result else False
-            profanity_category = profanity_result.category if profanity_result else None
-            profanity_confidence = profanity_result.confidence if profanity_result else 0.0
-            
-            # 첫 번째 세션: Baseline keyword 검증 + AI hub 모델 검증
-            classification_result = self.baseline_session.validate(
-                text=sentence,
-                session_context=self.session_manager.get_context(session_id),
-                profanity_detected=profanity_detected,
-                profanity_category=profanity_category,
-                profanity_confidence=profanity_confidence
-            )
-            
-            # Special Label인 경우 두 번째 세션으로 전달
-            if self.baseline_session.is_special_label(classification_result):
-                classification_result = self.intensity_session.validate(classification_result)
-            
-            # 세 번째 세션: 최종 점수 계산
-            final_scores = self.final_score_session.calculate_final_scores(
-                classification_result=classification_result,
-                text=sentence
-            )
-            
-            # 최종 점수를 ClassificationResult에 적용
-            classification_result = self.final_score_session.apply_final_scores_to_result(
-                classification_result=classification_result,
-                final_scores=final_scores
-            )
-            
-            # 세션 맥락 업데이트
-            self.session_manager.add_sentence(session_id, sentence)
-            
-            return classification_result
-        else:
-            # 하위 호환성: 기존 방식
-            # HEAD: 기본 로직
-            # 1차: 욕설 필터링
-            profanity_result = self.profanity_detector.detect(sentence)
-            
-            # 2차: 발화 의도 분류
-            classification_result = self.intent_predictor.predict(
-                sentence,
-                profanity_result.is_profanity if profanity_result else False,
-                self.session_manager.get_context(session_id),
-                profanity_category=profanity_result.category if profanity_result else None,  # logic: 추가
-                profanity_confidence=profanity_result.confidence if profanity_result else 0.0  # logic: 추가
-            )
-            
-            # 세션 맥락 업데이트
-            self.session_manager.add_sentence(session_id, sentence)
-            
-            return classification_result
+        return classification_result
     
     def process_with_routing(
         self,
@@ -399,3 +369,36 @@ class MainPipeline:
         )
         
         return router_result
+
+    def process_single_sentence_two_stage(self, text: str, session_id: str) -> ClassificationResult:
+        """
+        단일 문장에 대해 2-Stage 분석 + 최종 스코어링 수행
+        """
+        
+        # 1. [Stage 1] 욕설 탐지 및 Baseline 분류
+        profanity_result = self.profanity_detector.detect(text)
+        
+        baseline_result = self.baseline_session.validate(
+            text=text,
+            session_context=self.session_manager.get_context(session_id),
+            profanity_detected=profanity_result.is_profanity if profanity_result else False,
+            profanity_category=profanity_result.category if profanity_result else None,
+            profanity_confidence=profanity_result.confidence if profanity_result else 0.0
+        )
+        
+        validated_result = self.intensity_session.validate(baseline_result)
+    
+
+        # 3. [Stage 3] Final Score 계산 (여기가 핵심)
+        # final_score_session이 계산한 스코어 딕셔너리를 받습니다.
+        final_scores = self.final_score_session.calculate_final_scores(
+            classification_result=validated_result,
+            text=text
+        )
+        
+        final_result = self.final_score_session.apply_final_scores_to_result(
+            classification_result=validated_result,
+            final_scores=final_scores
+        )
+
+        return final_result

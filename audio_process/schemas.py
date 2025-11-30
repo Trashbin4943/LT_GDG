@@ -2,6 +2,7 @@ from ninja import Router, File, UploadedFile, Schema
 from django.shortcuts import get_object_or_404
 from .models import CallRecording, SpeakerSegment
 from datetime import date, datetime
+from typing import Optional
 
 class RecordingUploadResponse(Schema):
     id: int
@@ -34,6 +35,16 @@ class SpeakerSegmentSchema(Schema):
     is_profanity: bool | None = None       # 욕설 여부
 
     profanity_category: str | None = None
+    profanity_method: str | None = None
+
+    intensity: float | None = None
+    intensity_level: str | None=None
+    is_immoral : bool | None=None
+    immorality_confidence : float | None=None
+
+
+
+
 
 class SegmentUpdateSchema(Schema):
     id: int
@@ -45,10 +56,8 @@ class RecordingDetailSchema(Schema):
     session_id: str
     file_name: str
     created_at: datetime
+    audio_url: Optional[str]
     segments: list[SpeakerSegmentSchema]
 
 class SpeakerUpdateSchema(Schema):
     segments: list[SegmentUpdateSchema]
-
-
-

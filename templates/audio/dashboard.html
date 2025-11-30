@@ -1,52 +1,70 @@
 {% extends 'base.html' %} {% block title %}분석 대시보드 - LinguaTech{% endblock %} {% block content %}
+
 <style>
+    /* 1. 채팅 말풍선 기본 스타일 */
     .chat-bubble {
         max-width: 75%;
         border-radius: 15px;
         padding: 10px 15px;
         position: relative;
         cursor: pointer;
-        transition: transform 0.1s;
+        transition: transform 0.1s, box-shadow 0.2s;
     }
     .chat-bubble:hover {
         transform: scale(1.01);
+        z-index: 10;
+    }
+
+    /* 2. [재생 중] 강조 스타일 (초록색 테두리) */
+    .chat-bubble.playing {
+        border: 2px solid #198754 !important;
+        background-color: #e8f5e9 !important;
+        transform: scale(1.02);
+        box-shadow: 0 4px 10px rgba(25, 135, 84, 0.2);
     }
 
     .chat-left {
-        background-color: #f1f3f5;
+        background-color: #f8f9fa; /* 밝은 회색 */
         color: #333;
         border-bottom-left-radius: 0;
+        border: 1px solid #e9ecef;
     }
     .chat-right {
-        background-color: #fff3cd;
+        background-color: #fff3cd; /* 연한 노랑 */
         color: #333;
         border-bottom-right-radius: 0;
         align-self: flex-end;
+        border: 1px solid #ffeeba;
     }
 
     .chat-meta {
         font-size: 0.75rem;
-        margin-top: 5px;
-        opacity: 0.7;
+        margin-top: 6px;
+        opacity: 0.6;
     }
 
+    /* 배지 스타일 */
     .badge-emotion {
         background-color: #ffc107;
         color: #000;
-    }
+    } /* 감정 */
     .badge-logic {
         background-color: #dc3545;
         color: #fff;
-    }
+    } /* 논리(위협 등) */
 </style>
 
 <div class="container-fluid vh-100 d-flex flex-column">
-    <div class="row bg-white border-bottom py-3 px-4 align-items-center" style="height: 60px">
+    <div class="row bg-white border-bottom py-3 px-4 align-items-center shadow-sm" style="height: 60px; z-index: 100">
         <div class="col">
-            <h5 class="mb-0 fw-bold" id="headerTitle">분석 결과 로딩 중...</h5>
+            <h5 class="mb-0 fw-bold text-primary" id="headerTitle">
+                <span class="spinner-border spinner-border-sm" role="status"></span> 로딩 중...
+            </h5>
         </div>
         <div class="col-auto">
-            <a href="/audio/list" class="btn btn-outline-secondary btn-sm">목록으로</a>
+            <a href="/audio/list" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 목록으로
+            </a>
         </div>
     </div>
 
@@ -55,6 +73,7 @@
             <div id="chatMessages" class="d-flex flex-column gap-3 pb-5">
                 <div class="text-center py-5">
                     <div class="spinner-border text-primary"></div>
+                    <p class="mt-2 text-muted">대화 내용을 불러오고 있습니다...</p>
                 </div>
             </div>
         </div>
@@ -64,74 +83,106 @@
                 id="emptyState"
                 class="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-4 text-center"
             >
-                <i class="bi bi-chat-dots fs-1 mb-3"></i>
+                <div class="mb-3 p-4 rounded-circle bg-light">
+                    <i class="bi bi-chat-left-text fs-1 text-secondary"></i>
+                </div>
                 <h5>대화를 선택하세요</h5>
-                <p class="small">고객의 말풍선을 클릭하면<br />상세 분석 결과와 솔루션을 볼 수 있습니다.</p>
+                <p class="small">고객의 말풍선을 클릭하면<br />상세 분석 결과와 AI 솔루션을 볼 수 있습니다.</p>
             </div>
 
             <div id="detailContent" class="d-none">
                 <div class="p-3 bg-light border-bottom">
-                    <h6 class="fw-bold mb-1">🔍 발화 상세 분석</h6>
-                    <small class="text-muted" id="detailTime">00:00</small>
+                    <h6 class="fw-bold mb-1 text-dark">🔍 발화 상세 분석</h6>
+                    <small class="text-muted" id="detailTime">00:00 ~ 00:00</small>
                 </div>
 
                 <div class="p-3">
-                    <div class="card mb-3 border-0 shadow-sm">
+                    <div class="card mb-3 border-0 shadow-sm bg-body-tertiary">
                         <div class="card-body">
-                            <h6 class="card-subtitle mb-2 text-muted small">감정 / 의도</h6>
                             <div class="mb-3">
-                                <span class="badge bg-secondary fs-6 me-1" id="detailEmotion">-</span>
-                                <span class="badge bg-dark fs-6" id="detailLogical">-</span>
-                            </div>
-
-                            <h6 class="card-subtitle mb-2 text-muted small">리스크 점수</h6>
-                            <div class="progress mb-2" style="height: 20px">
-                                <div
-                                    id="riskProgressBar"
-                                    class="progress-bar bg-danger"
-                                    role="progressbar"
-                                    style="width: 0%"
-                                >
-                                    0%
+                                <label class="small text-muted fw-bold mb-1">감정 / 의도</label>
+                                <div>
+                                    <span class="badge bg-white text-dark border me-1" id="detailEmotion">-</span>
+                                    <span class="badge bg-secondary" id="detailLogical">-</span>
                                 </div>
                             </div>
 
-                            <ul class="list-group list-group-flush small mt-3">
-                                <li class="list-group-item d-flex justify-content-between px-0">
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="text-muted">리스크 점수</span>
+                                    <span id="riskScoreValue" class="fw-bold">0%</span>
+                                </div>
+                                <div class="progress" style="height: 10px">
+                                    <div
+                                        id="riskProgressBar"
+                                        class="progress-bar bg-success"
+                                        role="progressbar"
+                                        style="width: 0%"
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <ul class="list-group list-group-flush small bg-transparent">
+                                <li class="list-group-item bg-transparent d-flex justify-content-between px-0">
                                     <span>욕설 감지</span>
                                     <span class="fw-bold" id="detailProfanity">-</span>
                                 </li>
-                                <li class="list-group-item d-flex justify-content-between px-0">
-                                    <span>위협/폭언</span>
+                                <li class="list-group-item bg-transparent d-flex justify-content-between px-0">
+                                    <span>위협/폭언 유형</span>
                                     <span class="fw-bold" id="detailThreat">-</span>
+                                </li>
+
+                                <li class="list-group-item bg-transparent px-0">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>발화 강도 (Intensity)</span>
+                                        <span id="detailIntensityValue" class="fw-bold">-</span>
+                                    </div>
+                                    <div class="progress" style="height: 6px">
+                                        <div
+                                            id="detailIntensityBar"
+                                            class="progress-bar"
+                                            role="progressbar"
+                                            style="width: 0%"
+                                        ></div>
+                                    </div>
+                                </li>
+
+                                <li class="list-group-item bg-transparent d-flex justify-content-between px-0">
+                                    <span>비윤리적 화법</span>
+                                    <span id="detailImmoral">-</span>
                                 </li>
                             </ul>
                         </div>
                     </div>
 
                     <div class="d-grid gap-2 mb-3">
-                        <button class="btn btn-primary" id="btnGenerate" onclick="generateSolution()">
-                            🪄 AI 솔루션(매뉴얼) 생성
+                        <button class="btn btn-primary shadow-sm" id="btnGenerate" onclick="generateSolution()">
+                            <i class="bi bi-magic me-1"></i> AI 솔루션(매뉴얼) 생성
                         </button>
                     </div>
 
                     <div id="solutionCard" class="card border-primary bg-primary-subtle bg-opacity-10 d-none">
                         <div class="card-body">
-                            <h6 class="fw-bold text-primary mb-2">💡 AI 가이드</h6>
-                            <h5 class="fw-bold mb-3" id="solTitle"></h5>
+                            <h6 class="fw-bold text-primary mb-2">
+                                <i class="bi bi-lightbulb-fill me-1"></i> AI 가이드
+                            </h6>
+
+                            <h5 class="fw-bold mb-3" id="solTitle" style="font-size: 1.1rem"></h5>
 
                             <div class="mb-3">
                                 <span class="badge bg-white text-primary border border-primary mb-1"
                                     >Tone & Manner</span
                                 >
-                                <p class="small mb-0" id="solTone"></p>
+                                <p class="small mb-0 text-secondary" id="solTone"></p>
                             </div>
 
                             <div class="mb-0">
-                                <span class="badge bg-white text-success border border-success mb-1"
-                                    >추천 스크립트</span
-                                >
-                                <div class="p-2 bg-white rounded border small text-dark" id="solScript"></div>
+                                <span class="badge bg-success bg-opacity-75 text-white mb-2">추천 스크립트</span>
+                                <div
+                                    class="p-3 bg-white rounded border border-success-subtle small text-dark"
+                                    id="solScript"
+                                    style="line-height: 1.6"
+                                ></div>
                             </div>
                         </div>
                     </div>
@@ -143,14 +194,37 @@
 
 <script>
     const SESSION_ID = '{{ session_id }}';
-    let currentSegment = null; // 현재 선택된 세그먼트 데이터 저장
-    let allSegments = []; // 전체 데이터 저장
+    let currentSegment = null; // 현재 선택된 세그먼트 데이터
+    let allSegments = []; // 전체 데이터
 </script>
 {% endblock %} {% block extra_js %}
 <script>
+    // ==========================================
+    // 1. 오디오 플레이어 설정 (전역)
+    // ==========================================
+    let globalAudio = new Audio();
+    let stopTime = 0;
+    let isPlaying = false;
+    let currentBubbleId = null;
+
+    // 타임 업데이트: 종료 시간 도달 시 정지
+    globalAudio.addEventListener('timeupdate', () => {
+        if (isPlaying && stopTime > 0 && globalAudio.currentTime >= stopTime) {
+            globalAudio.pause();
+            isPlaying = false;
+            resetBubbleStyle();
+        }
+    });
+
+    globalAudio.addEventListener('error', (e) => {
+        console.error('Audio Load Error:', e);
+    });
+
     document.addEventListener('DOMContentLoaded', loadChatData);
 
-    // 1. 데이터 로드 (audio_process API가 logical 정보까지 포함해서 준다고 가정)
+    // ==========================================
+    // 2. 데이터 로드 및 초기화
+    // ==========================================
     async function loadChatData() {
         const token = localStorage.getItem('access_token');
         try {
@@ -163,16 +237,25 @@
             document.getElementById('headerTitle').innerText = data.file_name;
             allSegments = data.segments;
 
+            // S3 오디오 연결
+            if (data.audio_url) {
+                globalAudio.src = data.audio_url;
+                globalAudio.load();
+                console.log('Audio Source Connected');
+            }
+
             renderChat(data.segments);
         } catch (e) {
             console.error(e);
             document.getElementById(
                 'chatMessages'
-            ).innerHTML = `<p class="text-center text-danger">데이터를 불러오지 못했습니다.</p>`;
+            ).innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-triangle"></i> 데이터를 불러오지 못했습니다.</div>`;
         }
     }
 
-    // 2. 채팅 UI 렌더링
+    // ==========================================
+    // 3. 채팅 UI 렌더링 (리스트)
+    // ==========================================
     function renderChat(segments) {
         const container = document.getElementById('chatMessages');
         container.innerHTML = '';
@@ -183,23 +266,39 @@
             const bubbleClass = isCustomer ? 'chat-right' : 'chat-left';
             const speakerName = isCustomer ? '고객' : '상담사';
 
-            // 배지 (고객인 경우에만 표시)
+            // [Badge] 고객인 경우만 표시
             let badgesHtml = '';
             if (isCustomer) {
+                // 감정 배지
                 if (seg.emotion_label) {
                     badgesHtml += `<span class="badge rounded-pill badge-emotion me-1">${seg.emotion_label}</span>`;
                 }
-                if (seg.logical_label && seg.logical_type === 'SPECIAL') {
-                    badgesHtml += `<span class="badge rounded-pill badge-logic">${seg.logical_label}</span>`;
+
+                // [NEW] Intensity (강도) 배지
+                // HIGH면 빨강, MEDIUM이면 노랑
+                if (seg.intensity_level === 'HIGH') {
+                    badgesHtml += `<span class="badge rounded-pill bg-danger me-1">🔥 격앙(${seg.intensity?.toFixed(
+                        1
+                    )})</span>`;
+                } else if (seg.intensity_level === 'MEDIUM') {
+                    badgesHtml += `<span class="badge rounded-pill bg-warning text-dark me-1">⚡ 톤 높음</span>`;
+                }
+
+                // [NEW] Immorality (비도덕) 배지
+                if (seg.is_immoral) {
+                    const conf = (seg.immorality_confidence * 100).toFixed(0);
+                    badgesHtml += `<span class="badge rounded-pill bg-dark me-1" title="신뢰도 ${conf}%">⚠️ 비윤리적</span>`;
                 }
             }
 
             const html = `
                 <div class="d-flex flex-column ${alignClass}" style="max-width: 80%;">
                     <small class="ms-1 text-muted mb-1">${speakerName}</small>
-                    <div class="chat-bubble ${bubbleClass} shadow-sm" onclick="selectSegment(${seg.id})">
+                    <div id="bubble-${seg.id}" 
+                         class="chat-bubble ${bubbleClass} shadow-sm" 
+                         onclick="selectSegment(${seg.id})">
                         <div class="mb-1">${badgesHtml}</div>
-                        <div>${seg.text}</div>
+                        <div style="line-height:1.5;">${seg.text}</div>
                         <div class="chat-meta text-end">${formatTime(seg.start_time)}</div>
                     </div>
                 </div>
@@ -208,70 +307,149 @@
         });
     }
 
-    // 3. 말풍선 클릭 시 상세 보기
+    // ==========================================
+    // 4. 세그먼트 클릭 핸들러 (재생 + 상세 뷰)
+    // ==========================================
     window.selectSegment = function (segId) {
         const seg = allSegments.find((s) => s.id === segId);
         if (!seg) return;
         currentSegment = seg;
 
-        // UI 전환
+        // 1. 오디오 재생 (구간 반복)
+        playSegmentAudio(seg.start_time, seg.end_time, segId);
+
+        // 2. 우측 사이드바 업데이트
+        updateDetailView(seg);
+    };
+
+    // ==========================================
+    // 5. 상세 뷰 업데이트 (Bug Fix: 초기화 포함)
+    // ==========================================
+    function updateDetailView(seg) {
+        // --- [BUG FIX] 1. 이전 솔루션 데이터 완전 초기화 ---
+        const solCard = document.getElementById('solutionCard');
+        solCard.classList.add('d-none'); // 일단 숨김
+        document.getElementById('solTitle').innerText = '';
+        document.getElementById('solTone').innerText = '';
+        document.getElementById('solScript').innerHTML = '';
+
+        // 버튼 상태 리셋
+        const btn = document.getElementById('btnGenerate');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-magic me-1"></i> AI 솔루션(매뉴얼) 생성';
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+        // ------------------------------------------------
+
+        // 2. 화면 전환 (Empty -> Content)
         document.getElementById('emptyState').classList.add('d-none');
         document.getElementById('detailContent').classList.remove('d-none');
 
-        // 기본 정보 채우기
+        // 3. 기본 텍스트 정보 매핑
         document.getElementById('detailTime').innerText = `${formatTime(seg.start_time)} ~ ${formatTime(seg.end_time)}`;
-        document.getElementById('detailEmotion').innerText = seg.emotion_label || '분석 안됨';
+        document.getElementById('detailEmotion').innerText = seg.emotion_label || '중립';
         document.getElementById('detailLogical').innerText = seg.logical_label || 'Normal';
 
-        // 리스크 점수 (logical_analysis 결과가 있으면 표시)
+        // 4. 리스크 점수 바
         const risk = seg.risk_score ? (seg.risk_score * 100).toFixed(0) : 0;
-        const bar = document.getElementById('riskProgressBar');
-        bar.style.width = `${risk}%`;
-        bar.innerText = `${risk}%`;
-        bar.className = `progress-bar ${risk > 70 ? 'bg-danger' : risk > 30 ? 'bg-warning' : 'bg-success'}`;
+        const riskBar = document.getElementById('riskProgressBar');
+        riskBar.style.width = `${risk}%`;
+        document.getElementById('riskScoreValue').innerText = `${risk}%`;
 
-        document.getElementById('detailProfanity').innerText = seg.is_profanity ? '감지됨' : '미감지';
+        riskBar.className = 'progress-bar'; // 클래스 초기화
+        if (risk >= 70) riskBar.classList.add('bg-danger');
+        else if (risk >= 30) riskBar.classList.add('bg-warning', 'text-dark');
+        else riskBar.classList.add('bg-success');
+
+        // 5. 욕설/위협 텍스트
+        document.getElementById('detailProfanity').innerText = seg.logical_label = 'PROFANITY' ? '🚨 감지됨' : '미감지';
         document.getElementById('detailThreat').innerText = seg.profanity_category || '-';
 
-        // 솔루션 영역 초기화
-        document.getElementById('solutionCard').classList.add('d-none');
-        const btn = document.getElementById('btnGenerate');
+        // 6. [Intensity] 강도 게이지 바 업데이트
+        if (document.getElementById('detailIntensityBar')) {
+            const intensity = seg.intensity || 0.0;
+            const level = seg.intensity_level || 'LOW';
 
-        // 상담사는 솔루션 생성 불필요
+            // 3.0 만점 기준 퍼센트
+            const percent = Math.min((intensity / 3.0) * 100, 100);
+
+            // 색상 결정
+            let barColor = 'bg-success';
+            let textColor = 'text-success';
+            if (level === 'HIGH') {
+                barColor = 'bg-danger';
+                textColor = 'text-danger';
+            } else if (level === 'MEDIUM') {
+                barColor = 'bg-warning';
+                textColor = 'text-warning';
+            }
+
+            // UI 적용
+            const barElem = document.getElementById('detailIntensityBar');
+            barElem.style.width = `${percent}%`;
+            barElem.className = `progress-bar ${barColor}`;
+
+            const valElem = document.getElementById('detailIntensityValue');
+            valElem.innerText = `${level} (${intensity.toFixed(2)})`;
+            valElem.className = `fw-bold ${textColor}`;
+        }
+
+        // 7. [Immorality] 비윤리성 배지 업데이트
+        if (document.getElementById('detailImmoral')) {
+            const isImmoral = seg.is_immoral;
+            const elem = document.getElementById('detailImmoral');
+            if (isImmoral) {
+                const conf = (seg.immorality_confidence * 100).toFixed(0);
+                elem.innerHTML = `<span class="badge bg-dark border border-light">🚫 YES (${conf}%)</span>`;
+            } else {
+                elem.innerHTML = `<span class="badge bg-light text-secondary border">CLEAN</span>`;
+            }
+        }
+
+        // 8. 상담사 발화일 경우 버튼 비활성화 처리
         if (seg.speaker_label === 'counselor') {
             btn.disabled = true;
             btn.innerText = '상담사 발화는 솔루션 대상 아님';
-        } else {
-            btn.disabled = false;
-            btn.innerText = '🪄 AI 솔루션(매뉴얼) 생성';
+            btn.classList.replace('btn-primary', 'btn-secondary');
         }
-    };
+    }
 
-    // 4. 솔루션 생성 요청
+    // ==========================================
+    // 6. AI 솔루션 생성 요청 (API 연동)
+    // ==========================================
     window.generateSolution = async function () {
         if (!currentSegment) return;
 
         const btn = document.getElementById('btnGenerate');
         btn.disabled = true;
-        btn.innerText = '생성 중...';
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 생성 중...`;
 
         try {
             const token = localStorage.getItem('access_token');
-            // SolutionRequestDTO 구조에 맞춰 데이터 전송
+
+            // [중요] Backend DTO(SolutionRequestDTO) 구조에 맞춰 데이터 전송
+            // -> emotion_label, intensity_level, is_immoral 등 필수 포함
             const payload = {
-                segment_id: currentSegment.id, // 필수: PK
+                segment_id: currentSegment.id,
                 session_id: SESSION_ID,
-                turn_index: 0, // 모델에 없으면 임의값, 있으면 실제값
+                turn_index: 0,
                 text: currentSegment.text,
+
+                // 4축 분석 데이터
                 emotion_label: currentSegment.emotion_label || '중립',
-                logical_label: currentSegment.logical_label || 'INQUIRY',
+                logical_label: currentSegment.logical_label || 'NORMAL',
                 logical_type: currentSegment.logical_type || 'NORMAL',
+
+                // [NEW] 새로운 필드들 (DTO와 일치해야 함)
+                intensity_level: currentSegment.intensity_level || 'LOW',
+                is_immoral: currentSegment.is_immoral || false,
+
                 risk_score: currentSegment.risk_score || 0.0,
                 profanity_category: currentSegment.profanity_category,
-                // 키워드는 필요 시 파싱해서 전송 (여기선 빈 값 예시)
                 extracted_keywords: {},
             };
 
+            // API 호출
             const res = await fetch(`/api/solution/generate`, {
                 method: 'POST',
                 headers: {
@@ -282,30 +460,75 @@
             });
 
             if (!res.ok) throw new Error('솔루션 생성 실패');
+
+            // 응답 받기 (SolutionResponseDTO 구조)
             const solData = await res.json();
 
-            // 결과 표시
+            // 결과 화면 표시
             document.getElementById('solTitle').innerText = solData.strategy_title;
             document.getElementById('solTone').innerText = solData.tone_and_manner;
 
-            const scriptHtml = solData.solution_scripts.map((s) => `<p class="mb-1">Wait " ${s} "</p>`).join('');
+            // 스크립트 리스트 -> HTML 변환
+            const scriptHtml = solData.solution_scripts
+                .map((s) => `<p class="mb-2"><i class="bi bi-chat-quote-fill text-success me-2"></i>${s}</p>`)
+                .join('');
             document.getElementById('solScript').innerHTML = scriptHtml;
 
+            // 카드 보이기
             document.getElementById('solutionCard').classList.remove('d-none');
-            btn.innerText = '생성 완료';
+
+            // 버튼 상태 완료로 변경
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> 생성 완료';
         } catch (e) {
             console.error(e);
             alert('솔루션을 생성하지 못했습니다.');
+            // 에러 시 버튼 복구
             btn.disabled = false;
             btn.innerText = '🪄 AI 솔루션(매뉴얼) 생성';
         }
     };
 
+    // ==========================================
+    // 7. 유틸리티 함수들
+    // ==========================================
+
+    // 시간 포맷 (MM:SS)
     function formatTime(seconds) {
         if (!seconds) return '00:00';
         const m = Math.floor(seconds / 60);
         const s = Math.floor(seconds % 60);
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    // 재생 함수
+    function playSegmentAudio(start, end, segId) {
+        // 같은 거 누르면 정지
+        if (isPlaying && currentBubbleId === segId) {
+            globalAudio.pause();
+            isPlaying = false;
+            resetBubbleStyle();
+            return;
+        }
+        // 초기화 후 재생
+        resetBubbleStyle();
+
+        currentBubbleId = segId;
+        const bubble = document.getElementById(`bubble-${segId}`);
+        if (bubble) bubble.classList.add('playing');
+
+        stopTime = end;
+        globalAudio.currentTime = start;
+        globalAudio.play().catch((e) => console.log('재생 에러(Autoplay 정책 등):', e));
+        isPlaying = true;
+    }
+
+    // 스타일 리셋
+    function resetBubbleStyle() {
+        if (currentBubbleId) {
+            const bubble = document.getElementById(`bubble-${currentBubbleId}`);
+            if (bubble) bubble.classList.remove('playing');
+            currentBubbleId = null;
+        }
     }
 </script>
 {% endblock %}

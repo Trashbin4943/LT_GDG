@@ -1,36 +1,26 @@
-from typing import Dict, List
+# logical_analysis/solution_system/logic/constants.py
 
-# 1. emtion_analysis.emotion_system의 label_map을 import합니다.
-try:
-    from emotion_analysis.emotion_system.emotion.label_map import label_map as ORIGIN_LABEL_MAP
-    EMOTION_LABELS = list(ORIGIN_LABEL_MAP.values())
-except ImportError:
-    EMOTION_LABELS=[]
+class SentimentType:
+    POSITIVE = "POSITIVE"
+    NEGATIVE = "NEGATIVE"
+    NEUTRAL = "NEUTRAL"
 
-
-# 2. 감정 카테고리 매핑 (Sentiment Map)
-SENTIMENT_CATEGORY = {
-    "POSITIVE": [
-        "감사", "형식적 감사", "진심 어린 감사", "기쁨", "흥분", 
-        "자신감", "감동", "호기심", "애정", "요청"
-    ],
-    "NEGATIVE_HIGH": [ # 고강도 부정 (특별 케어 필요)
-        "격분", "분노", "혐오", "좌절", "불안"
-    ],
-    "NEGATIVE_LOW": [ # 일반 부정
-        "불만", "짜증", "경미한 짜증", "실망", "긴장", "혼란", 
-        "냉소", "슬픔", "무기력", "피로"
-    ],
-    "NEUTRAL": ["중립"]
+# [변경] 단순화된 감정 라벨('긍정', '부정', '중립')을 내부 상수로 매핑
+SENTIMENT_MAP = {
+    "긍정": SentimentType.POSITIVE,
+    "부정": SentimentType.NEGATIVE,
+    "중립": SentimentType.NEUTRAL
 }
 
-# 3. 감정 -> 카테고리 역방향 조회를 위한 헬퍼 함수
-def get_sentiment_category(emotion_name: str) -> str:
+def get_sentiment_category(emotion_label: str) -> str:
+    """단순화된 감정 라벨을 받아 내부 상수(POSITIVE 등)로 변환"""
+    return SENTIMENT_MAP.get(emotion_label, SentimentType.NEUTRAL)
 
-    if emotion_name not in EMOTION_LABELS:
-        pass
+class IntensityLevel:
+    HIGH = "HIGH"       # 격앙 (즉각적 조치/진정 필요)
+    MEDIUM = "MEDIUM"   # 일반
+    LOW = "LOW"         # 차분함
 
-    for category, emotions in SENTIMENT_CATEGORY.items():
-        if emotion_name in emotions:
-            return category
-    return "NEUTRAL"
+class LogicalType:
+    SPECIAL = "SPECIAL"  # 특수 상황 (위험)
+    NORMAL = "NORMAL"    # 일반 상황
